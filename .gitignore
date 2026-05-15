@@ -1,0 +1,39 @@
+# Build output
+node_modules/
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+*.app
+*.dmg
+*.msi
+*.deb
+*.AppImage
+
+# Local app state (RARE writes to vault/.rare; we never want to commit a vault either)
+.rare/
+my-vault/
+*.sqlite
+*.sqlite-journal
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Vitest
+coverage/
+
+# Reference implementation (GPL v3 — do not commit into this repo)
+ref/llm_wiki/
