@@ -11,7 +11,16 @@ export function SettingsView() {
   const [monthly, setMonthly] = useState(0);
 
   useEffect(() => {
-    getSettings().then(s => { setApiKey(s.anthropic_api_key); setVaultPath(s.vault_path); });
+    (async () => {
+      try {
+        const s = await getSettings();
+        setApiKey(s.anthropic_api_key);
+        setVaultPath(s.vault_path);
+        if (s.anthropic_api_key) initAnthropic(s.anthropic_api_key);
+      } catch {
+        setSaveStatus('Failed to load settings');
+      }
+    })();
   }, []);
 
   useEffect(() => {
