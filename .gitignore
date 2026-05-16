@@ -35,5 +35,5 @@ Thumbs.db
 # Vitest
 coverage/
 
-# Reference implementation (GPL v3 — do not commit into this repo)
-ref/llm_wiki/
+# Reference material — never commit into this repo
+ref/
