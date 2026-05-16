@@ -23,7 +23,7 @@ const API_KEY = process.env.ANTHROPIC_API_KEY;
 if (!API_KEY) throw new Error('ANTHROPIC_API_KEY env var is required');
 const VAULT_PATH = process.env.VAULT_PATH;
 if (!VAULT_PATH) throw new Error('VAULT_PATH env var is required');
-const PORT = Number(process.env.PORT ?? 3000);
+const PORT = Number(process.env.PORT ?? 3100);
 
 initAnthropic(API_KEY);
 
