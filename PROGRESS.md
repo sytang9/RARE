@@ -6,6 +6,28 @@ A milestone is a phase boundary, a major user-visible feature, a verification-ga
 
 ---
 
+## 2026-05-17 — v1 implementation complete: all 22 tasks shipped
+
+**What shipped**
+- Phase 0 (scaffold): Tauri+React+Vite+TS init, sqlite migrations, Anthropic client wrapper.
+- Phase 1 (vault + ingest happy path): frontmatter, slugs, wikilinks, page read/write, index/log/overview maintenance, URL→markdown, two-step CoT analyze→generate, end-to-end ingest orchestration.
+- Phase 2 (queue + chat + PDF): sqlite-backed queue with retry/crash-recovery, background worker, SHA256 dedup + analyze cache, PDF extraction (Rust `pdf-extract`), pure-LLM `findRelevantPages` (swappable interface), chat `answer` with citations, paste/chat/settings UI, cost telemetry in Settings.
+- Phase 3 (lint + eval + polish): orphan/dead-link detection, LLM lint pass (`record_lint_findings` tool), run-on-open scheduler, default `purpose.md`/`schema.md` templates, 20-question eval scaffold (gated by `RARE_EVAL=1`), Obsidian config auto-generation.
+
+**Stats**
+- 50 Vitest tests passing (1 skipped — DB connect, needs Tauri runtime)
+- `npx tsc --noEmit` clean
+- 22 conventional-commit messages, one per task
+- Worktree: `worktree-v1-implementation`, remote `https://github.com/sytang9/rare.git`
+
+**What's next**
+- Smoke test: paste 10 URLs + 2 PDFs, verify wiki structure in Obsidian.
+- Recovery test: kill mid-ingest, verify queue resumes.
+- 20-question eval: populate `eval/cases.json` and run `RARE_EVAL=1 npx vitest run eval/`.
+- Cargo install needed to run Rust tests (`cargo test pdf_test`).
+
+---
+
 ## 2026-05-16 — Project bootstrapped: spec, architecture, and plan in place
 
 **What shipped**
