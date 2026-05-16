@@ -4,8 +4,15 @@ mod pdf;
 
 #[tauri::command]
 fn write_file(path: String, contents: String) -> Result<(), String> {
-    std::fs::create_dir_all(std::path::Path::new(&path).parent().unwrap_or(std::path::Path::new(".")))
-        .map_err(|e| e.to_string())?;
+    let p = std::path::Path::new(&path);
+    if !p.is_absolute() {
+        return Err(format!("write_file: path must be absolute, got: {}", path));
+    }
+    if let Some(parent) = p.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
     std::fs::write(&path, contents).map_err(|e| e.to_string())
 }
 

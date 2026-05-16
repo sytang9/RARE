@@ -8,23 +8,28 @@ export function PasteView() {
   const [status, setStatus] = useState('');
 
   async function handleSubmit() {
-    const settings = await getSettings();
-    const vault = { root: settings.vault_path };
+    if (!input.trim()) return;
     setStatus('fetching...');
-    if (/^https?:\/\//.test(input.trim())) {
-      const { fetch } = await import('@tauri-apps/plugin-http');
-      const resp = await fetch(input.trim());
-      const html = await resp.text();
-      const { htmlToMarkdown } = await import('../sources/url');
-      const { title, markdown } = htmlToMarkdown(html, input.trim());
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80);
-      const rawPath = `raw/sources/${slug}.md`;
-      await invoke('write_file', { path: `${vault.root}/${rawPath}`, contents: markdown });
-      setStatus('ingesting...');
-      await ingestSource(vault, rawPath);
-      setStatus('done');
-    } else {
-      setStatus('only URLs supported here; drag-drop a file for PDFs');
+    try {
+      const settings = await getSettings();
+      const vault = { root: settings.vault_path };
+      if (/^https?:\/\//.test(input.trim())) {
+        const { fetch } = await import('@tauri-apps/plugin-http');
+        const resp = await fetch(input.trim());
+        const html = await resp.text();
+        const { htmlToMarkdown } = await import('../sources/url');
+        const { title, markdown } = htmlToMarkdown(html, input.trim());
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80);
+        const rawPath = `raw/sources/${slug}.md`;
+        await invoke('write_file', { path: `${vault.root}/${rawPath}`, contents: markdown });
+        setStatus('ingesting...');
+        await ingestSource(vault, rawPath);
+        setStatus('done');
+      } else {
+        setStatus('only URLs supported here; drag-drop a file for PDFs');
+      }
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : 'Something went wrong'}`);
     }
     setInput('');
   }

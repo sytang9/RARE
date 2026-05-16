@@ -4,6 +4,7 @@ import { useChatStore } from '../state/chatStore';
 export function ChatView() {
   const { messages, pending, send } = useChatStore();
   const [draft, setDraft] = useState('');
+  const [error, setError] = useState('');
 
   return (
     <div className="flex flex-col h-full">
@@ -15,13 +16,20 @@ export function ChatView() {
         ))}
         {pending && <div className="text-zinc-500">thinking...</div>}
       </div>
+      {error && <div className="text-red-400 text-sm px-4 py-2">{error}</div>}
       <form
         onSubmit={async e => {
           e.preventDefault();
           if (!draft.trim()) return;
           const q = draft;
           setDraft('');
-          await send(q);
+          setError('');
+          try {
+            await send(q);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Something went wrong');
+            useChatStore.setState({ pending: false });
+          }
         }}
         className="p-4 border-t border-zinc-800"
       >

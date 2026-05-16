@@ -1,4 +1,5 @@
-import Database from '@tauri-apps/plugin-sql';
+import { openDb } from '../db/connect';
+import type Database from '@tauri-apps/plugin-sql';
 
 interface SettingsShape {
   anthropic_api_key: string;
@@ -17,7 +18,7 @@ const DEFAULTS: SettingsShape = {
 let db: Database | null = null;
 
 async function getDb(): Promise<Database> {
-  if (!db) db = await Database.load('sqlite:settings.sqlite');
+  if (!db) db = await openDb('settings.sqlite');
   return db;
 }
 
