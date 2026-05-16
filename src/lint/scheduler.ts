@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFileText } from '../lib/fs';
+import { pathJoin } from '../lib/path';
 import { runLint } from './run';
 import { wikiDir, type VaultRoot } from '../vault/root';
 
@@ -15,7 +15,7 @@ export function shouldRunLint(
 
 export async function lastLintRun(vault: VaultRoot): Promise<Date | null> {
   try {
-    const log = await readFile(join(wikiDir(vault), 'log.md'), 'utf-8');
+    const log = await readFileText(pathJoin(wikiDir(vault), 'log.md'));
     const matches = [...log.matchAll(/^## \[([\d-: ]+)\] lint \|/gm)];
     if (!matches.length) return null;
     const last = matches[matches.length - 1][1];

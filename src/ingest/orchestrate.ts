@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFileText } from '../lib/fs';
+import { pathJoin } from '../lib/path';
 import { analyze, type AnalyzeResult } from './analyze';
 import { generate } from './generate';
 import { writePage } from '../vault/page';
@@ -17,7 +17,7 @@ const typeFromPath = (p: string): 'source' | 'entity' | 'concept' => {
 
 const safeRead = async (path: string): Promise<string> => {
   try {
-    return await readFile(path, 'utf-8');
+    return await readFileText(path);
   } catch {
     return '';
   }
@@ -39,9 +39,9 @@ const summaryForPage = (path: string, analysis: AnalyzeResult, rawPath: string):
 };
 
 export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<void> {
-  const sourceText = await readFile(join(vault.root, rawPath), 'utf-8');
-  const purpose = await safeRead(join(vault.root, 'purpose.md'));
-  const schema = await safeRead(join(vault.root, 'schema.md'));
+  const sourceText = await readFileText(pathJoin(vault.root, rawPath));
+  const purpose = await safeRead(pathJoin(vault.root, 'purpose.md'));
+  const schema = await safeRead(pathJoin(vault.root, 'schema.md'));
   const indexBody = await readIndex(vault);
 
   const analysis: AnalyzeResult = await analyze({

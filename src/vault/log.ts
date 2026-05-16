@@ -1,5 +1,5 @@
-import { appendFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { appendFileText } from '../lib/fs';
+import { pathJoin } from '../lib/path';
 import { wikiDir, type VaultRoot } from './root';
 
 export interface LogEntry {
@@ -15,13 +15,12 @@ function timestamp(): string {
 }
 
 export async function appendLog(vault: VaultRoot, entry: LogEntry): Promise<void> {
-  const path = join(wikiDir(vault), 'log.md');
-  await mkdir(wikiDir(vault), { recursive: true });
+  const path = pathJoin(wikiDir(vault), 'log.md');
   let block = `\n## [${timestamp()}] ${entry.event} | ${entry.title}\n`;
   if (entry.detail) {
     for (const [k, v] of Object.entries(entry.detail)) {
       block += `- ${k}: ${JSON.stringify(v)}\n`;
     }
   }
-  await appendFile(path, block, 'utf-8');
+  await appendFileText(path, block);
 }

@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import generateTemplate from '../../prompts/generate.md?raw';
 import { chat } from '../llm/anthropic';
 import type { AnalyzeResult } from './analyze';
 
@@ -39,9 +37,7 @@ const WRITE_TOOL = {
 } as const;
 
 export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
-  const promptPath = join(dirname(fileURLToPath(import.meta.url)), '../../prompts/generate.md');
-  const template = await readFile(promptPath, 'utf-8');
-  const prompt = template
+  const prompt = generateTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
     .replace('{{analysis}}', JSON.stringify(input.analysis, null, 2))

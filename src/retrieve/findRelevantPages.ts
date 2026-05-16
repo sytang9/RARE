@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import retrieveTemplate from '../../prompts/retrieve.md?raw';
 import { chat } from '../llm/anthropic';
 import { readPage } from '../vault/page';
 import { readIndex } from '../vault/indexFile';
@@ -28,10 +26,8 @@ export async function findRelevantPages(
   query: string,
   vault: VaultRoot,
 ): Promise<RelevantPage[]> {
-  const __dir = dirname(fileURLToPath(import.meta.url));
   const indexBody = await readIndex(vault);
-  const template = await readFile(join(__dir, '../../prompts/retrieve.md'), 'utf-8');
-  const prompt = template.replace('{{index}}', indexBody).replace('{{query}}', query);
+  const prompt = retrieveTemplate.replace('{{index}}', indexBody).replace('{{query}}', query);
 
   const result = await chat({
     model: 'sonnet',

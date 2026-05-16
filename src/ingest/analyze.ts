@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import analyzeTemplate from '../../prompts/analyze.md?raw';
 import { chat } from '../llm/anthropic';
 
 export interface AnalyzeInput {
@@ -42,12 +40,7 @@ const ANALYZE_TOOL = {
 } as const;
 
 export async function analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
-  const thisFile = typeof __dirname !== 'undefined'
-    ? __dirname
-    : dirname(fileURLToPath(import.meta.url));
-  const promptPath = resolve(thisFile, '../../prompts/analyze.md');
-  const template = await readFile(promptPath, 'utf-8');
-  const prompt = template
+  const prompt = analyzeTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
     .replace('{{index}}',   input.index)

@@ -1,5 +1,5 @@
-import { writeFile, mkdir, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { writeFileText, fileExists } from '../lib/fs';
+import { pathJoin } from '../lib/path';
 import type { VaultRoot } from './root';
 import { ensureObsidianConfig } from '../lib/obsidian-config';
 
@@ -34,17 +34,12 @@ const SCHEMA_DEFAULT = `# Wiki Schema
   to the affected page, cite both sources.
 `;
 
-async function exists(path: string): Promise<boolean> {
-  try { await access(path); return true; } catch { return false; }
-}
-
 export async function initVault(vault: VaultRoot): Promise<void> {
-  await mkdir(vault.root, { recursive: true });
-  if (!await exists(join(vault.root, 'purpose.md'))) {
-    await writeFile(join(vault.root, 'purpose.md'), PURPOSE_DEFAULT, 'utf-8');
+  if (!await fileExists(pathJoin(vault.root, 'purpose.md'))) {
+    await writeFileText(pathJoin(vault.root, 'purpose.md'), PURPOSE_DEFAULT);
   }
-  if (!await exists(join(vault.root, 'schema.md'))) {
-    await writeFile(join(vault.root, 'schema.md'), SCHEMA_DEFAULT, 'utf-8');
+  if (!await fileExists(pathJoin(vault.root, 'schema.md'))) {
+    await writeFileText(pathJoin(vault.root, 'schema.md'), SCHEMA_DEFAULT);
   }
   await ensureObsidianConfig(vault);
 }

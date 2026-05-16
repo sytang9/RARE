@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import lintTemplate from '../../prompts/lint.md?raw';
+import { writeFileText } from '../lib/fs';
+import { pathJoin } from '../lib/path';
 import { chat } from '../llm/anthropic';
 import { detectOrphans, detectDeadLinks } from './detect';
 import { listPages } from '../vault/page';
@@ -28,10 +28,8 @@ export async function runLint(vault: VaultRoot): Promise<void> {
   const pages = await listPages(vault);
   const indexBody = await readIndex(vault);
 
-  const __dir = dirname(fileURLToPath(import.meta.url));
-  const template = await readFile(join(__dir, '../../prompts/lint.md'), 'utf-8');
   const pagesBlock = pages.map(p => `### ${p.path}\n${p.body.slice(0, 1000)}`).join('\n\n');
-  const prompt = template.replace('{{index}}', indexBody).replace('{{pages}}', pagesBlock);
+  const prompt = lintTemplate.replace('{{index}}', indexBody).replace('{{pages}}', pagesBlock);
 
   const result = await chat({
     model: 'haiku',
@@ -71,8 +69,7 @@ export async function runLint(vault: VaultRoot): Promise<void> {
     ...findings.stale_claims.map(s => `- [[${s.page}]]: ${s.reason}`),
   ].join('\n');
 
-  await mkdir(join(wikiDir(vault), 'lint'), { recursive: true });
-  await writeFile(join(wikiDir(vault), 'lint', `${today}.md`), report, 'utf-8');
+  await writeFileText(pathJoin(wikiDir(vault), 'lint', `${today}.md`), report);
   await appendLog(vault, {
     event: 'lint',
     title: today,
