@@ -1,0 +1,12 @@
+[
+  {
+    "question": "What is cosine similarity?",
+    "expected_pages": ["concepts/cosine-similarity"],
+    "min_citations": 1
+  },
+  {
+    "question": "How does Euclidean distance differ from cosine similarity?",
+    "expected_pages": ["concepts/cosine-similarity", "concepts/euclidean-distance"],
+    "min_citations": 2
+  }
+]
