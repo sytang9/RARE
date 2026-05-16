@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getSettings, updateSettings } from '../settings/settings';
 import { initAnthropic } from '../llm/anthropic';
+import { initVault } from '../vault/templates';
 
 export function SettingsView() {
   const [apiKey, setApiKey] = useState('');
@@ -38,6 +39,7 @@ export function SettingsView() {
     try {
       await updateSettings({ anthropic_api_key: apiKey, vault_path: vaultPath });
       if (apiKey) initAnthropic(apiKey);
+      if (vaultPath.trim()) await initVault({ root: vaultPath });
       setSaveStatus('Saved');
     } catch (err) {
       setSaveStatus(`Error: ${err instanceof Error ? err.message : 'Save failed'}`);
