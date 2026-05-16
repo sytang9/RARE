@@ -38,6 +38,9 @@ describe('lint.run', () => {
     expect(report).toMatch(/## Dead links/);
     expect(report).toMatch(/## Contradictions/);
     expect(report).toMatch(/## Suggested cross-references/);
+    expect(report).toMatch(/## Stale claims/);
+    const log = await readFile(join(dir, 'wiki', 'log.md'), 'utf-8');
+    expect(log).toContain('lint');
     await rm(dir, { recursive: true, force: true });
   });
 });
