@@ -5,9 +5,11 @@ services:
       - "3100:3100"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - VAULT_PATH=/vault
       - PORT=3100
+      # VAULT_PATH is not set here — server defaults to /app/vault (mounted below)
     volumes:
-      # Mount your vault directory here
-      - ${VAULT_PATH:-./vault}:/vault
+      # Host vault directory → /app/vault inside container.
+      # Default: ./vault next to docker-compose.yml (auto-created on first run).
+      # Override: set VAULT_PATH in .env to an absolute host path.
+      - ${VAULT_PATH:-./vault}:/app/vault
     restart: unless-stopped

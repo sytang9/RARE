@@ -21,13 +21,15 @@ import { sumLogCosts } from './src/lib/cost.js';
 // --- env validation ---
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 if (!API_KEY) throw new Error('ANTHROPIC_API_KEY env var is required');
-const VAULT_PATH = process.env.VAULT_PATH;
-if (!VAULT_PATH) throw new Error('VAULT_PATH env var is required');
+
+const _vaultRaw = process.env.VAULT_PATH ?? join(fileURLToPath(new URL('.', import.meta.url)), 'vault');
+const VAULT_PATH = resolvePath(_vaultRaw);
 const PORT = Number(process.env.PORT ?? 3100);
 
 initAnthropic(API_KEY);
 
 // --- DB setup ---
+mkdirSync(VAULT_PATH, { recursive: true });
 const RARE_DIR = join(VAULT_PATH, '.rare');
 mkdirSync(RARE_DIR, { recursive: true });
 
