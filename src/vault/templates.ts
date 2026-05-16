@@ -1,6 +1,7 @@
 import { writeFile, mkdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { VaultRoot } from './root';
+import { ensureObsidianConfig } from '../lib/obsidian-config';
 
 const PURPOSE_DEFAULT = `# Vault Purpose
 
@@ -45,4 +46,5 @@ export async function initVault(vault: VaultRoot): Promise<void> {
   if (!await exists(join(vault.root, 'schema.md'))) {
     await writeFile(join(vault.root, 'schema.md'), SCHEMA_DEFAULT, 'utf-8');
   }
+  await ensureObsidianConfig(vault);
 }
