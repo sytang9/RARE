@@ -12,4 +12,14 @@ describe('sources.pdf.pdfToMarkdown', () => {
     expect(invoke).toHaveBeenCalledWith('extract_pdf_text', { path: '/some/path/doc.pdf' });
     expect(result).toBe('RARE test fixture\n');
   });
+
+  it('throws on non-pdf path', async () => {
+    await expect(pdfToMarkdown('/some/path/doc.txt')).rejects.toThrow('expected an absolute .pdf path');
+  });
+
+  it('propagates invoke rejection as an Error', async () => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('pdf parse error'));
+    await expect(pdfToMarkdown('/bad.pdf')).rejects.toThrow('pdf parse error');
+  });
 });
