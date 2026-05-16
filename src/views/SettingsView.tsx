@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { getSettings, updateSettings } from '../settings/settings';
 import { initAnthropic } from '../llm/anthropic';
 
@@ -6,9 +7,27 @@ export function SettingsView() {
   const [apiKey, setApiKey] = useState('');
   const [vaultPath, setVaultPath] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [monthly, setMonthly] = useState(0);
 
   useEffect(() => {
     getSettings().then(s => { setApiKey(s.anthropic_api_key); setVaultPath(s.vault_path); });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const settings = await getSettings();
+      if (!settings.vault_path) return;
+      try {
+        const log = await invoke<string>('read_file_text', {
+          path: `${settings.vault_path}/wiki/log.md`,
+        });
+        const ym = new Date().toISOString().slice(0, 7);
+        const { sumLogCosts } = await import('../lib/cost');
+        setMonthly(sumLogCosts(log, ym));
+      } catch {
+        // no log yet — silently ignore
+      }
+    })();
   }, []);
 
   async function save() {
@@ -46,6 +65,7 @@ export function SettingsView() {
       </label>
       <button onClick={save} className="px-4 py-2 bg-zinc-200 text-zinc-900 rounded">Save</button>
       {saveStatus && <p className="text-sm text-zinc-400">{saveStatus}</p>}
+      <p className="text-sm text-zinc-400">This month: ${monthly.toFixed(2)}</p>
     </div>
   );
 }
