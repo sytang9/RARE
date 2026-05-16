@@ -1,0 +1,13 @@
+services:
+  rare:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - VAULT_PATH=/vault
+      - PORT=3000
+    volumes:
+      # Mount your vault directory here
+      - ${VAULT_PATH:-./vault}:/vault
+    restart: unless-stopped

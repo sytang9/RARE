@@ -6,6 +6,36 @@ A milestone is a phase boundary, a major user-visible feature, a verification-ga
 
 ---
 
+## 2026-05-17 — Web app mode: Express server + Docker Compose, no display required
+
+**What shipped**
+- `server.ts`: Express 5 backend that runs ALL business logic (ingest, chat, lint, vault, LLM). API key and vault path from env vars, never exposed to browser.
+- `scripts/raw-loader.mjs` + `scripts/raw-loader-impl.mjs`: Node.js ESM hooks that handle Vite's `?raw` imports when running with `tsx`, so the same TypeScript modules work both in Vite (browser) and the Express server (Node.js).
+- `Dockerfile` + `docker-compose.yml`: single `docker compose up` deploys the app. No X11/display required.
+- `.env.example`: `ANTHROPIC_API_KEY` + `VAULT_PATH`.
+- Views and stores refactored to pure fetch calls (`/api/ingest/url`, `/api/ingest/path`, `/api/chat`, `/api/settings`, `/api/lint`). All LLM/vault code removed from browser bundle.
+- `src/sources/url.ts`: `htmlToMarkdown` made async, JSDOM path for Node.js server.
+- `src/sources/pdf.ts`: Node.js pdf-parse path added alongside Tauri invoke path.
+- `App.tsx`: removed server-side imports (lint scheduler + settings); lint-on-open now fires from server startup.
+- `jsdom` moved from devDependencies to dependencies.
+- 50/50 Vitest tests still passing after all changes.
+- `npm run server` launches the backend; `npm run build:web` builds only the Vite frontend.
+
+**Why:** Shared server (shanyuan) has no X11 display; teammate access requires single-command install on any machine.
+
+**Key decisions**
+- `module.register()` (new Node.js ESM hooks API) required for the raw-loader to coexist with tsx's loader hooks.
+- `QueueBackend` synchronous interface already matched `better-sqlite3` — no adapter needed.
+- Lint on startup errors are non-fatal (swallowed with console.warn).
+
+**What's next**
+- Smoke test: `docker compose up`, paste 10 URLs + 2 PDFs, verify wiki structure.
+- Recovery test: kill mid-ingest, verify queue resumes.
+- 20-question eval.
+- Merge to main.
+
+---
+
 ## 2026-05-17 — Production build green: binary + .deb package built
 
 **What shipped**

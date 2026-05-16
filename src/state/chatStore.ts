@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Message } from '../chat/answer';
+
+export interface Message { role: 'user' | 'assistant'; content: string; }
 
 interface ChatState {
   messages: Message[];
@@ -12,13 +13,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pending: false,
   async send(text) {
     set(s => ({ messages: [...s.messages, { role: 'user', content: text }], pending: true }));
-    const { answer } = await import('../chat/answer');
-    const { getSettings } = await import('../settings/settings');
-    const { vault_path } = await getSettings();
-    const result = await answer(text, get().messages, { root: vault_path });
-    set(s => ({
-      messages: [...s.messages, { role: 'assistant', content: result.text }],
-      pending: false,
-    }));
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: text, history: get().messages }),
+      });
+      const json = await r.json() as { text?: string; error?: string };
+      if (!r.ok) throw new Error(json.error ?? 'Chat failed');
+      set(s => ({
+        messages: [...s.messages, { role: 'assistant', content: json.text ?? '' }],
+        pending: false,
+      }));
+    } catch (err) {
+      set(s => ({
+        messages: [
+          ...s.messages,
+          { role: 'assistant', content: `Error: ${err instanceof Error ? err.message : 'failed'}` },
+        ],
+        pending: false,
+      }));
+    }
   },
 }));

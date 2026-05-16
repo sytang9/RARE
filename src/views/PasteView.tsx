@@ -1,7 +1,4 @@
 import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { ingestSource } from '../ingest/orchestrate';
-import { getSettings } from '../settings/settings';
 
 export function PasteView() {
   const [input, setInput] = useState('');
@@ -9,29 +6,34 @@ export function PasteView() {
 
   async function handleSubmit() {
     if (!input.trim()) return;
-    setStatus('fetching...');
+    const val = input.trim();
+    setInput('');
+    setStatus('submitting...');
     try {
-      const settings = await getSettings();
-      const vault = { root: settings.vault_path };
-      if (/^https?:\/\//.test(input.trim())) {
-        const { fetch } = await import('@tauri-apps/plugin-http');
-        const resp = await fetch(input.trim());
-        const html = await resp.text();
-        const { htmlToMarkdown } = await import('../sources/url');
-        const { title, markdown } = htmlToMarkdown(html, input.trim());
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80);
-        const rawPath = `raw/sources/${slug}.md`;
-        await invoke('write_file', { path: `${vault.root}/${rawPath}`, contents: markdown });
-        setStatus('ingesting...');
-        await ingestSource(vault, rawPath);
-        setStatus('done');
+      if (/^https?:\/\//.test(val)) {
+        const r = await fetch('/api/ingest/url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: val }),
+        });
+        const json = await r.json() as { jobId?: number; error?: string };
+        if (!r.ok) throw new Error(json.error ?? 'Ingest failed');
+        setStatus(`Queued (job #${json.jobId})`);
+      } else if (val.startsWith('/')) {
+        const r = await fetch('/api/ingest/path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: val }),
+        });
+        const json = await r.json() as { jobId?: number; error?: string };
+        if (!r.ok) throw new Error(json.error ?? 'Ingest failed');
+        setStatus(`Queued (job #${json.jobId})`);
       } else {
-        setStatus('only URLs supported here; drag-drop a file for PDFs');
+        setStatus('Paste a URL (https://...) or absolute file path (/path/to/file.pdf)');
       }
     } catch (err) {
       setStatus(`Error: ${err instanceof Error ? err.message : 'Something went wrong'}`);
     }
-    setInput('');
   }
 
   return (
@@ -40,7 +42,7 @@ export function PasteView() {
         className="w-full h-32 bg-zinc-900 text-zinc-100 p-3 rounded"
         value={input}
         onChange={e => setInput(e.target.value)}
-        placeholder="Paste a URL..."
+        placeholder="Paste a URL (https://...) or absolute file path..."
       />
       <button onClick={handleSubmit} className="mt-2 px-4 py-2 bg-zinc-200 text-zinc-900 rounded">
         Ingest
