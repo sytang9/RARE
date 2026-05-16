@@ -17,5 +17,5 @@ export function htmlToMarkdown(html: string, url: string): UrlExtractResult {
   const article = reader.parse();
   if (!article) throw new Error('Could not extract article');
   const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-  return { title: article.title ?? url, markdown: td.turndown(article.content), sourceUrl: url };
+  return { title: article.title ?? url, markdown: td.turndown(article.content ?? ''), sourceUrl: url };
 }
