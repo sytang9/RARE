@@ -6,6 +6,23 @@ A milestone is a phase boundary, a major user-visible feature, a verification-ga
 
 ---
 
+## 2026-05-17 — Production build green: binary + .deb package built
+
+**What shipped**
+- Fixed Vite build: replaced all `node:fs/path/url` in frontend with `src/lib/fs.ts` (Tauri-aware wrappers) and `src/lib/path.ts` (sync helpers). Prompts switched to `?raw` Vite imports.
+- Added `list_dir` Rust command in `lib.rs` for `readdir` support.
+- Docker image `rare-dev` (Ubuntu 22.04 + Node 20 + Rust + all webkit2gtk/gtk3 deps) for building on shared server without sudo.
+- Binary: `src-tauri/target/release/rare` (22 MB). Package: `RARE_0.1.0_amd64.deb` (7.8 MB).
+- `npm rebuild better-sqlite3` needed inside Docker (native module ABI mismatch between host Node version and Docker Node 20).
+- `isTauri` detection uses `window.__TAURI_INTERNALS__` — not `typeof window`, since Vitest/JSDOM has `window` but not `__TAURI_INTERNALS__`.
+- 50/50 Vitest tests still passing after refactor.
+
+**What's next**
+- Smoke test: run app (needs X11 or VNC on a machine with a display).
+- Recovery test, 20-question eval, then merge to main.
+
+---
+
 ## 2026-05-17 — v1 implementation complete: all 22 tasks shipped
 
 **What shipped**
