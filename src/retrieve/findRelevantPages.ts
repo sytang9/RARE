@@ -46,14 +46,19 @@ export async function findRelevantPages(
     return [];
   }
 
-  const { paths } = result.toolUse.input as { paths: string[] };
+  const raw = result.toolUse.input as Record<string, unknown>;
+  const paths = Array.isArray(raw?.paths)
+    ? (raw.paths as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
   const pages: RelevantPage[] = [];
   for (const path of paths.slice(0, 8)) {
     try {
       const p = await readPage(vault, path);
       pages.push({ path, title: p.frontmatter.title, body: p.body });
-    } catch {
-      // skip missing — LLM hallucinated a path
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn(`[findRelevantPages] unexpected error reading ${path}:`, err);
+      }
     }
   }
   return pages;

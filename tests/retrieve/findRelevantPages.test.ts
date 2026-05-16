@@ -30,4 +30,21 @@ describe('retrieve.findRelevantPages', () => {
     expect(pages[0].body).toContain('A foo concept');
     await rm(dir, { recursive: true, force: true });
   });
+
+  it('returns [] when LLM does not call pick_pages', async () => {
+    mockChatOnce({ text: 'I cannot answer that.' });
+    const pages = await findRelevantPages('what is foo?', { root: dir });
+    expect(pages).toHaveLength(0);
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('skips hallucinated paths that do not exist on disk', async () => {
+    mockChatOnce({
+      toolUse: { name: 'pick_pages', input: { paths: ['concepts/does-not-exist', 'concepts/foo'] } },
+    });
+    const pages = await findRelevantPages('what is foo?', { root: dir });
+    expect(pages).toHaveLength(1);
+    expect(pages[0].path).toBe('concepts/foo');
+    await rm(dir, { recursive: true, force: true });
+  });
 });
