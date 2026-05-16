@@ -61,7 +61,8 @@ export async function answer(
 async function safeRead(path: string): Promise<string> {
   try {
     return await readFile(path, 'utf-8');
-  } catch {
-    return '';
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw err;
   }
 }
