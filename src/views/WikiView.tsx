@@ -300,6 +300,7 @@ export function WikiView() {
               {selected.body.trim() ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  urlTransform={(url: string) => url}
                   components={{
                     a: ({ href, children }) => {
                       if (href?.includes('wiki:')) {
