@@ -39,14 +39,14 @@ const ANALYZE_TOOL = {
   },
 } as const;
 
-export async function analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+export async function analyze(input: AnalyzeInput): Promise<{ result: AnalyzeResult; usd: number }> {
   const prompt = analyzeTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
     .replace('{{index}}',   input.index)
     .replace('{{source}}',  input.sourceText);
 
-  const result = await chat({
+  const resp = await chat({
     model: 'haiku',
     system: 'You analyze sources for a personal knowledge wiki.',
     messages: [{ role: 'user', content: prompt }],
@@ -55,8 +55,8 @@ export async function analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
     maxTokens: 4096,
   });
 
-  if (!result.toolUse || result.toolUse.name !== 'record_analysis') {
+  if (!resp.toolUse || resp.toolUse.name !== 'record_analysis') {
     throw new Error('Expected tool_use(record_analysis); got none');
   }
-  return result.toolUse.input as AnalyzeResult;
+  return { result: resp.toolUse.input as AnalyzeResult, usd: resp.usd };
 }

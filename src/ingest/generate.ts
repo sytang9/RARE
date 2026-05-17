@@ -41,7 +41,7 @@ const BATCH_SIZE = 4;
 async function generateBatch(
   batchPages: AnalyzeResult['recommended_pages'],
   input: GenerateInput,
-): Promise<GeneratedPage[]> {
+): Promise<{ pages: GeneratedPage[]; usd: number }> {
   const slimAnalysis = {
     source_title: input.analysis.source_title,
     source_summary: input.analysis.source_summary,
@@ -62,18 +62,20 @@ async function generateBatch(
     maxTokens: 8192,
   });
   if (!result.toolUse || result.toolUse.name !== 'write_pages') {
-    return [];
+    return { pages: [], usd: result.usd };
   }
-  return (result.toolUse.input as { pages?: GeneratedPage[] }).pages ?? [];
+  return { pages: (result.toolUse.input as { pages?: GeneratedPage[] }).pages ?? [], usd: result.usd };
 }
 
-export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
+export async function generate(input: GenerateInput): Promise<{ pages: GeneratedPage[]; usd: number }> {
   const recs = input.analysis.recommended_pages ?? [];
   const all: GeneratedPage[] = [];
+  let totalUsd = 0;
   for (let i = 0; i < recs.length; i += BATCH_SIZE) {
     const batch = recs.slice(i, i + BATCH_SIZE);
-    const pages = await generateBatch(batch, input);
+    const { pages, usd } = await generateBatch(batch, input);
     all.push(...pages);
+    totalUsd += usd;
   }
-  return all;
+  return { pages: all, usd: totalUsd };
 }

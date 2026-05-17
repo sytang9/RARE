@@ -62,19 +62,21 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   const schema = await safeRead(pathJoin(vault.root, 'schema.md'));
   const indexBody = await readIndex(vault);
 
-  const analysis: AnalyzeResult = await analyze({
+  const { result: analysis, usd: analyzeUsd } = await analyze({
     sourceText,
     purpose,
     schema,
     index: indexBody,
   });
 
-  const pages = await generate({
+  const { pages, usd: generateUsd } = await generate({
     analysis,
     purpose,
     schema,
     sourceExcerpt: sourceText,
   });
+
+  const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;
 
   const now = new Date().toISOString();
 
@@ -101,7 +103,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   await appendLog(vault, {
     event: 'ingest',
     title: analysis.source_title,
-    detail: { pages_written: pages.length, source: rawPath },
+    detail: { pages_written: pages.length, source: rawPath, cost_usd: costUsd },
   });
 
   const indexAfter = await readIndex(vault);
