@@ -8,6 +8,24 @@ import { appendLog } from '../vault/log';
 import { regenerateOverview } from '../vault/overview';
 import { type VaultRoot } from '../vault/root';
 
+const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+// Normalize LLM-generated paths to canonical form: {concepts|entities|sources}/<slug>
+const normalizePath = (p: string): string => {
+  const lower = p.toLowerCase();
+  for (const [singular, plural] of [['concept/', 'concepts/'], ['entity/', 'entities/'], ['source/', 'sources/']] as const) {
+    const prefix = lower.startsWith(plural) ? plural : lower.startsWith(singular) ? singular : null;
+    if (prefix) {
+      const rawSlug = p.slice(prefix.length);
+      return (lower.startsWith(plural) ? plural : plural) + toSlug(rawSlug);
+    }
+  }
+  // unknown prefix — try to infer from content; fall back to concepts/
+  const parts = p.split('/');
+  if (parts.length >= 2) return 'concepts/' + toSlug(parts.slice(1).join('-'));
+  return 'concepts/' + toSlug(p);
+};
+
 const typeFromPath = (p: string): 'source' | 'entity' | 'concept' => {
   if (p.startsWith('sources/')) return 'source';
   if (p.startsWith('entities/')) return 'entity';
@@ -60,21 +78,24 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
 
   const now = new Date().toISOString();
 
-  for (const p of pages) {
+  for (const raw of pages) {
+    const p = { ...raw, path: normalizePath(raw.path) };
     const type = typeFromPath(p.path);
+    const slug = p.path.split('/')[1] ?? p.path;
+    const title = slug.replace(/-/g, ' ');
     await writePage(vault, {
       path: p.path,
       frontmatter: {
         type,
-        title: p.path.split('/')[1].replace(/-/g, ' '),
-        sources: type === 'source' ? [] : [rawPath],
+        title,
+        sources: [rawPath],
         created: now,
         updated: now,
       },
       body: p.body,
     });
     const summary = summaryForPage(p.path, analysis, rawPath);
-    await updateIndex(vault, { path: p.path, title: p.path, type, summary });
+    await updateIndex(vault, { path: p.path, title, type, summary });
   }
 
   await appendLog(vault, {

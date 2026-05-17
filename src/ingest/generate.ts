@@ -36,12 +36,22 @@ const WRITE_TOOL = {
   },
 } as const;
 
-export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
+const BATCH_SIZE = 4;
+
+async function generateBatch(
+  batchPages: AnalyzeResult['recommended_pages'],
+  input: GenerateInput,
+): Promise<GeneratedPage[]> {
+  const slimAnalysis = {
+    source_title: input.analysis.source_title,
+    source_summary: input.analysis.source_summary,
+    recommended_pages: batchPages,
+  };
   const prompt = generateTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
-    .replace('{{analysis}}', JSON.stringify(input.analysis, null, 2))
-    .replace('{{source}}',  input.sourceExcerpt.slice(0, 8000));
+    .replace('{{analysis}}', JSON.stringify(slimAnalysis, null, 2))
+    .replace('{{source}}',  input.sourceExcerpt.slice(0, 6000));
 
   const result = await chat({
     model: 'haiku',
@@ -52,7 +62,18 @@ export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
     maxTokens: 8192,
   });
   if (!result.toolUse || result.toolUse.name !== 'write_pages') {
-    throw new Error('Expected tool_use(write_pages)');
+    return [];
   }
   return (result.toolUse.input as { pages?: GeneratedPage[] }).pages ?? [];
+}
+
+export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
+  const recs = input.analysis.recommended_pages ?? [];
+  const all: GeneratedPage[] = [];
+  for (let i = 0; i < recs.length; i += BATCH_SIZE) {
+    const batch = recs.slice(i, i + BATCH_SIZE);
+    const pages = await generateBatch(batch, input);
+    all.push(...pages);
+  }
+  return all;
 }
