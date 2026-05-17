@@ -3,6 +3,7 @@ import { Inbox, MessageSquare, Settings, GitBranch } from 'lucide-react';
 import { ChatView } from './views/ChatView';
 import { PasteView } from './views/PasteView';
 import { SettingsView } from './views/SettingsView';
+import { GraphView } from './views/GraphView';
 
 type Tab = 'ingest' | 'chat' | 'graph' | 'settings';
 
@@ -65,7 +66,7 @@ export default function App() {
         <div key={tab} className="view-in h-full">
           {tab === 'ingest'   && <PasteView />}
           {tab === 'chat'     && <ChatView />}
-          {tab === 'graph'    && <div className="h-full flex items-center justify-center"><p className="text-sm text-ink-dim">Graph coming soon.</p></div>}
+          {tab === 'graph'    && <GraphView />}
           {tab === 'settings' && <SettingsView />}
         </div>
       </main>
