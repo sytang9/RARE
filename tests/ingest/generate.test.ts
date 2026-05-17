@@ -19,7 +19,7 @@ describe('ingest.generate', () => {
         },
       },
     });
-    const pages = await generate({
+    const { pages } = await generate({
       analysis: analyzeFixture,
       purpose: '',
       schema: '',
