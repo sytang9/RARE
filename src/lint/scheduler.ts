@@ -1,6 +1,7 @@
 import { readFileText } from '../lib/fs';
 import { pathJoin } from '../lib/path';
 import { runLint } from './run';
+import { listPages } from '../vault/page';
 import { wikiDir, type VaultRoot } from '../vault/root';
 
 export function shouldRunLint(
@@ -28,6 +29,9 @@ export async function maybeRunLint(
   intervalHours: number,
   onStart?: () => void,
 ): Promise<boolean> {
+  // Nothing to lint if vault has no pages yet
+  const pages = await listPages(vault);
+  if (pages.length === 0) return false;
   const last = await lastLintRun(vault);
   if (!shouldRunLint(last, intervalHours)) return false;
   onStart?.();
