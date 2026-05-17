@@ -1,8 +1,9 @@
 import analyzeTemplate from '../../prompts/analyze.md?raw';
 import { chat } from '../llm/anthropic';
+import type { PdfDocumentBlock } from '../sources/pdf';
 
 export interface AnalyzeInput {
-  sourceText: string;
+  sourceContent: string | PdfDocumentBlock;
   purpose: string;
   schema: string;
   index: string;
@@ -40,16 +41,33 @@ const ANALYZE_TOOL = {
 } as const;
 
 export async function analyze(input: AnalyzeInput): Promise<{ result: AnalyzeResult; usd: number }> {
-  const prompt = analyzeTemplate
+  const basePrompt = analyzeTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
-    .replace('{{index}}',   input.index)
-    .replace('{{source}}',  input.sourceText);
+    .replace('{{index}}',   input.index);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let messages: any[];
+
+  if (typeof input.sourceContent === 'string') {
+    const prompt = basePrompt.replace('{{source}}', input.sourceContent);
+    messages = [{ role: 'user', content: prompt }];
+  } else {
+    // Vision PDF — replace {{source}} placeholder with a note; attach document block
+    const textPart = basePrompt.replace('{{source}}', '[See attached PDF document]');
+    messages = [{
+      role: 'user',
+      content: [
+        { type: 'text', text: textPart },
+        input.sourceContent,
+      ],
+    }];
+  }
 
   const resp = await chat({
     model: 'haiku',
     system: 'You analyze sources for a personal knowledge wiki.',
-    messages: [{ role: 'user', content: prompt }],
+    messages,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tools: [ANALYZE_TOOL as any],
     maxTokens: 4096,

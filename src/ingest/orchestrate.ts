@@ -63,7 +63,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   const indexBody = await readIndex(vault);
 
   const { result: analysis, usd: analyzeUsd } = await analyze({
-    sourceText,
+    sourceContent: sourceText,
     purpose,
     schema,
     index: indexBody,

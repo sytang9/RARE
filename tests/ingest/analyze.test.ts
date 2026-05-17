@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import '../__mocks__/anthropic';
 import { mockChatOnce, resetAnthropicMocks } from '../__mocks__/anthropic';
 import { analyze } from '../../src/ingest/analyze';
@@ -24,8 +24,8 @@ describe('ingest.analyze', () => {
         },
       },
     });
-    const result = await analyze({
-      sourceText: 'irrelevant — LLM is mocked',
+    const { result } = await analyze({
+      sourceContent: 'irrelevant — LLM is mocked',
       purpose: '',
       schema: '',
       index: '',
@@ -46,7 +46,7 @@ describe('ingest.analyze', () => {
   it('throws when the LLM returns no tool_use', async () => {
     mockChatOnce({ text: 'forgot to call tool', toolUse: undefined });
     await expect(
-      analyze({ sourceText: 'x', purpose: '', schema: '', index: '' }),
+      analyze({ sourceContent: 'x', purpose: '', schema: '', index: '' }),
     ).rejects.toThrow(/tool_use/i);
   });
 
@@ -57,5 +57,40 @@ describe('ingest.analyze', () => {
     const dir = dirname(fileURLToPath(import.meta.url));
     const template = readFileSync(join(dir, '../../prompts/analyze.md'), 'utf-8');
     expect(template).toMatchSnapshot();
+  });
+
+  it('builds multimodal messages when sourceContent is a document block', async () => {
+    const { analyze: analyzeLocal } = await import('../../src/ingest/analyze');
+    const { chat } = await import('../../src/llm/anthropic');
+    const chatMock = vi.mocked(chat);
+    chatMock.mockResolvedValueOnce({
+      text: '',
+      toolUse: {
+        name: 'record_analysis',
+        input: {
+          source_title: 'Test',
+          source_summary: 'summary',
+          entities: [],
+          concepts: [],
+          connections: [],
+          contradictions: [],
+          recommended_pages: [],
+        },
+      },
+      inputTokens: 100,
+      outputTokens: 50,
+      usd: 0.001,
+    });
+
+    const block = {
+      type: 'document' as const,
+      source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: 'abc=' },
+    };
+
+    await analyzeLocal({ sourceContent: block, purpose: '', schema: '', index: '' });
+
+    const callArgs = chatMock.mock.calls[chatMock.mock.calls.length - 1][0];
+    // messages content should be an array (multimodal) not a plain string
+    expect(Array.isArray(callArgs.messages[0].content)).toBe(true);
   });
 });
