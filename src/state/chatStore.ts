@@ -1,9 +1,10 @@
 import { create } from 'zustand';
+import type { ModelTier } from '../llm/anthropic';
 
 export interface Message { role: 'user' | 'assistant'; content: string; }
 
 export interface SendOpts {
-  model?: string;
+  model?: ModelTier;
   thinking?: boolean;
 }
 
