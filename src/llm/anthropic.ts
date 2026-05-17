@@ -9,7 +9,7 @@ const MODEL_IDS: Record<ModelTier, string> = {
   opus:   'claude-opus-4-7',
 };
 
-export { ModelTier };
+export type { ModelTier };
 
 export function initAnthropic(apiKey: string): void {
   client = new Anthropic({ apiKey });
