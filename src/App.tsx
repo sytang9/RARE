@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { Inbox, MessageSquare, Settings, GitBranch, BookOpen } from 'lucide-react';
+import { Inbox, MessageSquare, Settings, GitBranch, BookOpen, FolderOpen } from 'lucide-react';
 import { ChatView } from './views/ChatView';
 import { PasteView } from './views/PasteView';
 import { SettingsView } from './views/SettingsView';
 import { GraphView } from './views/GraphView';
 import { WikiView } from './views/WikiView';
+import { SourcesView } from './views/SourcesView';
 
-type Tab = 'ingest' | 'chat' | 'wiki' | 'graph' | 'settings';
+type Tab = 'ingest' | 'chat' | 'sources' | 'wiki' | 'graph' | 'settings';
 
 const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'ingest',   label: 'Ingest',   icon: Inbox },
-  { id: 'chat',     label: 'Chat',     icon: MessageSquare },
-  { id: 'wiki',     label: 'Wiki',     icon: BookOpen },
-  { id: 'graph',    label: 'Graph',    icon: GitBranch },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'ingest',  label: 'Ingest',  icon: Inbox },
+  { id: 'chat',    label: 'Chat',    icon: MessageSquare },
+  { id: 'sources', label: 'Sources', icon: FolderOpen },
+  { id: 'wiki',    label: 'Wiki',    icon: BookOpen },
+  { id: 'graph',   label: 'Graph',   icon: GitBranch },
+  { id: 'settings',label: 'Settings',icon: Settings },
 ];
 
 export default function App() {
@@ -66,11 +68,12 @@ export default function App() {
       <main className="flex-1 min-w-0 overflow-hidden dot-grid">
         {/* key={tab} remounts the wrapper on every tab change, triggering view-in */}
         <div key={tab} className="view-in h-full">
-          {tab === 'ingest'   && <PasteView />}
-          {tab === 'chat'     && <ChatView />}
-          {tab === 'wiki'     && <WikiView />}
-          {tab === 'graph'    && <GraphView />}
-          {tab === 'settings' && <SettingsView />}
+          {tab === 'ingest'  && <PasteView />}
+          {tab === 'chat'    && <ChatView />}
+          {tab === 'sources' && <SourcesView />}
+          {tab === 'wiki'    && <WikiView />}
+          {tab === 'graph'   && <GraphView />}
+          {tab === 'settings'&& <SettingsView />}
         </div>
       </main>
     </div>

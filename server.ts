@@ -19,6 +19,7 @@ import { writeFileText, readFileText } from './src/lib/fs.js';
 import { sumLogCosts } from './src/lib/cost.js';
 import { buildGraph } from './src/vault/graph.js';
 import { listPages, readPage } from './src/vault/page.js';
+import { removeFromIndex } from './src/vault/indexFile.js';
 
 // --- env validation ---
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -289,6 +290,69 @@ app.get('/api/graph', async (_req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ── Sources ──────────────────────────────────────────────────────────────────
+
+app.get('/api/sources', async (_req: Request, res: Response) => {
+  try {
+    const { readdir, stat } = await import('node:fs/promises');
+    const rawDir = join(VAULT_PATH, 'raw', 'sources');
+    let files: string[] = [];
+    try { files = await readdir(rawDir); } catch { /* empty */ }
+    const sources = await Promise.all(
+      files.filter(f => f.endsWith('.md')).map(async f => {
+        const full = join(rawDir, f);
+        const s    = await stat(full);
+        const slug = f.replace(/\.md$/, '');
+        return { slug, path: `raw/sources/${f}`, sizeBytes: s.size, modifiedAt: s.mtime.toISOString() };
+      })
+    );
+    res.json(sources);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/source', async (req: Request, res: Response) => {
+  const path = req.query.path as string | undefined;
+  if (!path || path.includes('..')) { res.status(400).json({ error: 'invalid path' }); return; }
+  try {
+    const text = await readFileText(join(VAULT_PATH, path));
+    res.json({ path, text });
+  } catch {
+    res.status(404).json({ error: 'source not found' });
+  }
+});
+
+app.delete('/api/source', async (req: Request, res: Response) => {
+  const path = req.query.path as string | undefined;
+  if (!path || path.includes('..') || !path.startsWith('raw/sources/')) {
+    res.status(400).json({ error: 'invalid path' }); return;
+  }
+  try {
+    const { unlink } = await import('node:fs/promises');
+    const { join: pjoin } = await import('node:path');
+
+    // Delete raw source file
+    await unlink(pjoin(VAULT_PATH, path));
+
+    // Cascade: delete wiki pages that reference this source
+    const pages = await listPages(vault);
+    const toDelete = pages.filter(p => p.frontmatter.sources?.includes(path));
+    for (const p of toDelete) {
+      try {
+        await unlink(pjoin(VAULT_PATH, 'wiki', `${p.path}.md`));
+        await removeFromIndex(vault, p.path);
+      } catch { /* ignore individual failures */ }
+    }
+
+    res.json({ deleted: path, cascadePages: toDelete.map(p => p.path) });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ── Wiki pages ───────────────────────────────────────────────────────────────
 
 // List all wiki pages (lightweight: id, title, type only)
 app.get('/api/pages', async (_req: Request, res: Response) => {
