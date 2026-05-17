@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject, type LinkObject } from 'react-force-graph-2d';
+import { forceCollide } from 'd3-force-3d';
 import { RotateCcw } from 'lucide-react';
 import type { GraphData, GraphNode, GraphLink } from '../vault/graph';
 import { GraphInfoPanel } from './GraphInfoPanel';
@@ -90,6 +91,15 @@ export function GraphView() {
     const id = focus.id as string;
     hotIds.current = new Set([id, ...(neighbourMap.current.get(id) ?? []).map(n => n.id as string)]);
   }, [hovered, selected]);
+
+  // Configure forceCollide to prevent node overlap once graph data is ready
+  useEffect(() => {
+    if (graphData.nodes.length === 0) return;
+    fgRef.current?.d3Force(
+      'collide',
+      forceCollide((node: NodeObject) => Math.sqrt((node as FGNode).val) * 5 + 8),
+    );
+  }, [graphData.nodes.length]);
 
   // ── node paint ──────────────────────────────────────────────────────────────
   const nodeCanvasObject = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -236,6 +246,8 @@ export function GraphView() {
           onNodeHover={handleNodeHover}
           onBackgroundClick={handleBackgroundClick}
           cooldownTicks={120}
+          d3AlphaDecay={0.03}
+          d3VelocityDecay={0.4}
           onEngineStop={() => fgRef.current?.zoomToFit(400, 60)}
           autoPauseRedraw={false}
           enableNodeDrag={true}
