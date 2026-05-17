@@ -251,7 +251,7 @@ export function WikiView() {
           )}
 
           {selected && !pageLoading && (
-            <div className="max-w-2xl mx-auto px-8 py-8">
+            <div className="max-w-4xl mx-auto px-8 py-8">
               {/* Header */}
               <div className="mb-6 pb-5 border-b border-rim">
                 <div className="flex items-start gap-3 mb-3">
@@ -299,12 +299,12 @@ export function WikiView() {
                   remarkPlugins={[remarkGfm]}
                   components={{
                     a: ({ href, children }) => {
-                      if (href?.startsWith('wiki:')) {
-                        const target = decodeURIComponent(href.slice(5));
+                      if (href?.includes('wiki:')) {
+                        const target = decodeURIComponent(href.split('wiki:')[1]);
                         const exists = !!slugMap.current.get(target) || !!slugMap.current.get(target.toLowerCase());
                         return (
                           <button
-                            onClick={() => handleWikilink(target)}
+                            onClick={(e) => { e.preventDefault(); handleWikilink(target); }}
                             className={[
                               'font-mono text-[0.85em] px-1 py-0.5 rounded underline underline-offset-2 transition-colors',
                               exists
