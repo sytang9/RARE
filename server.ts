@@ -16,7 +16,7 @@ import { sha256 } from './src/lib/sha256.js';
 import { htmlToMarkdown } from './src/sources/url.js';
 import { pdfToMarkdown } from './src/sources/pdf.js';
 import { writeFileText, readFileText } from './src/lib/fs.js';
-import { sumLogCosts } from './src/lib/cost.js';
+import { sumLogCosts, parseCostLog } from './src/lib/cost.js';
 import { buildGraph } from './src/vault/graph.js';
 import { listPages, readPage } from './src/vault/page.js';
 import { removeFromIndex } from './src/vault/indexFile.js';
@@ -396,6 +396,71 @@ app.get('/api/page', async (req: Request, res: Response) => {
     res.json(page);
   } catch {
     res.status(404).json({ error: 'page not found' });
+  }
+});
+
+// ── Cost endpoints ───────────────────────────────────────────────────────────
+
+app.get('/api/costs/sources', async (_req: Request, res: Response) => {
+  try {
+    let logText = '';
+    try { logText = await readFileText(join(VAULT_PATH, 'wiki', 'log.md')); } catch { /* no log */ }
+    const entries = logText.split(/\n## \[/).slice(1);
+    const sourceCosts: Record<string, number> = {};
+    for (const e of entries) {
+      if (!e.includes('] ingest |')) continue;
+      const srcMatch = e.match(/source"?:\s*"([^"]+)"/);
+      const costMatch = e.match(/cost_usd"?:\s*([0-9.]+)/);
+      if (srcMatch && costMatch) {
+        const src = srcMatch[1];
+        const cost = parseFloat(costMatch[1]);
+        sourceCosts[src] = Math.round(((sourceCosts[src] ?? 0) + cost) * 1_000_000) / 1_000_000;
+      }
+    }
+    res.json(sourceCosts);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/costs', async (req: Request, res: Response) => {
+  try {
+    const period = (req.query.period as string | undefined) ?? 'month';
+    let logText = '';
+    try { logText = await readFileText(join(VAULT_PATH, 'wiki', 'log.md')); } catch { /* no log */ }
+
+    const breakdown = parseCostLog(logText);
+    const today = new Date().toISOString().slice(0, 10);
+    const thisMonth = new Date().toISOString().slice(0, 7);
+
+    if (period === 'today') {
+      const todayDays = breakdown.byDay.filter(d => d.date === today);
+      const byType = { ingest: 0, chat: 0, lint: 0 };
+      for (const d of todayDays) {
+        byType.ingest += d.ingest;
+        byType.chat   += d.chat;
+        byType.lint   += d.lint;
+      }
+      const total = byType.ingest + byType.chat + byType.lint;
+      return res.json({ total, byType, byDay: todayDays });
+    }
+
+    if (period === 'month') {
+      const monthDays = breakdown.byDay.filter(d => d.date.startsWith(thisMonth));
+      const byType = { ingest: 0, chat: 0, lint: 0 };
+      for (const d of monthDays) {
+        byType.ingest += d.ingest;
+        byType.chat   += d.chat;
+        byType.lint   += d.lint;
+      }
+      const total = byType.ingest + byType.chat + byType.lint;
+      return res.json({ total, byType, byDay: monthDays });
+    }
+
+    // 'all'
+    return res.json(breakdown);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
