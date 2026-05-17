@@ -8,6 +8,14 @@ interface SettingsData {
   monthly_cost_usd: number;
 }
 
+interface CostBreakdown {
+  total: number;
+  byType: { ingest: number; chat: number; lint: number };
+  byDay: Array<{ date: string; ingest: number; chat: number; lint: number }>;
+}
+
+type Period = 'today' | 'month' | 'all';
+
 function Section({ icon: Icon, title, children }: {
   icon: React.ElementType;
   title: string;
@@ -24,12 +32,18 @@ function Section({ icon: Icon, title, children }: {
   );
 }
 
+function fmt(n: number): string {
+  return n > 0 ? `$${n.toFixed(3)}` : '—';
+}
+
 export function SettingsView() {
   const [settings, setSettings]       = useState<SettingsData | null>(null);
   const [costCeiling, setCostCeiling] = useState('');
   const [lintHours, setLintHours]     = useState('');
   const [status, setStatus]           = useState('');
   const [linting, setLinting]         = useState(false);
+  const [period, setPeriod]           = useState<Period>('month');
+  const [costs, setCosts]             = useState<CostBreakdown | null>(null);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -41,6 +55,13 @@ export function SettingsView() {
       })
       .catch(() => setStatus('Failed to load settings'));
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/costs?period=${period}`)
+      .then(r => r.json())
+      .then((c: CostBreakdown) => setCosts(c))
+      .catch(() => { /* ignore */ });
+  }, [period]);
 
   async function save() {
     setStatus('');
@@ -85,8 +106,12 @@ export function SettingsView() {
     );
   }
 
-  const spendPct  = Math.min(100, (settings.monthly_cost_usd / settings.cost_ceiling_usd) * 100);
-  const overBudget = spendPct > 80;
+  const total = costs?.total ?? 0;
+  const byType = costs?.byType ?? { ingest: 0, chat: 0, lint: 0 };
+  const byDay  = costs?.byDay  ?? [];
+  const barTotal = byType.ingest + byType.chat + byType.lint;
+
+  const PERIOD_LABELS: Record<Period, string> = { today: 'Today', month: 'This month', all: 'All time' };
 
   return (
     <div className="h-full overflow-y-auto p-8">
@@ -103,34 +128,124 @@ export function SettingsView() {
           </p>
         </Section>
 
+        {/* Cost breakdown section */}
         <Section icon={DollarSign} title="Cost">
-          <div className="flex items-baseline justify-between mb-3">
-            <span className="text-sm text-ink-dim">This month</span>
-            <span className="text-sm font-mono">
-              <span className="text-amber">${settings.monthly_cost_usd.toFixed(2)}</span>
-              <span className="text-ink-dim"> / ${Number(costCeiling).toFixed(2)}</span>
-            </span>
+
+          {/* Period toggle */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xs text-ink-dim">Period:</span>
+            <div className="flex bg-base border border-rim rounded overflow-hidden">
+              {(['today', 'month', 'all'] as Period[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={[
+                    'px-3 py-1 text-[11px] font-mono transition-colors',
+                    period === p
+                      ? 'bg-amber text-black font-bold'
+                      : 'text-ink-dim hover:text-ink',
+                  ].join(' ')}
+                >
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="h-1.5 bg-base rounded-full overflow-hidden mb-4">
-            <div
-              className={`h-full rounded-full transition-all ${overBudget ? 'bg-red-500' : 'bg-amber'}`}
-              style={{
-                width: `${spendPct}%`,
-                boxShadow: overBudget
-                  ? '0 0 10px rgba(239,68,68,0.6)'
-                  : '0 0 10px rgba(240,160,48,0.55)',
-              }}
-            />
+
+          {/* Total + stacked bar */}
+          <div className="bg-base border border-rim rounded-lg p-3 mb-3">
+            <div className="flex justify-between items-baseline mb-2">
+              <span className="text-xs text-ink-dim">{PERIOD_LABELS[period]}</span>
+              <span className="text-[15px] font-mono font-bold text-ink">${total.toFixed(3)}</span>
+            </div>
+
+            {barTotal > 0 ? (
+              <>
+                {/* Stacked proportional bar */}
+                <div className="h-2 rounded-full overflow-hidden flex gap-px mb-2">
+                  {byType.ingest > 0 && (
+                    <div
+                      className="h-full rounded-l-full"
+                      style={{ width: `${(byType.ingest / barTotal) * 100}%`, background: '#34d399' }}
+                    />
+                  )}
+                  {byType.chat > 0 && (
+                    <div
+                      className="h-full"
+                      style={{ width: `${(byType.chat / barTotal) * 100}%`, background: '#38bdf8' }}
+                    />
+                  )}
+                  {byType.lint > 0 && (
+                    <div
+                      className="h-full rounded-r-full"
+                      style={{ width: `${(byType.lint / barTotal) * 100}%`, background: '#f0a030' }}
+                    />
+                  )}
+                </div>
+                {/* Legend */}
+                <div className="flex gap-4 flex-wrap">
+                  {[
+                    { label: 'Ingest', color: '#34d399', val: byType.ingest },
+                    { label: 'Chat',   color: '#38bdf8', val: byType.chat   },
+                    { label: 'Lint',   color: '#f0a030', val: byType.lint   },
+                  ].map(({ label, color, val }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
+                      <span className="text-[10px] font-mono text-ink-dim">
+                        {label} {fmt(val)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-ink-dim">No costs recorded for this period.</p>
+            )}
           </div>
-          <label className="block">
-            <p className="text-xs text-ink-dim mb-1.5">Monthly ceiling (USD)</p>
-            <input
-              type="number"
-              value={costCeiling}
-              onChange={e => setCostCeiling(e.target.value)}
-              className="w-full bg-base border border-rim rounded px-3 py-2 text-sm text-ink font-mono input-amber-focus"
-            />
-          </label>
+
+          {/* Daily table */}
+          {byDay.length > 0 && (
+            <div className="bg-base border border-rim rounded-lg overflow-hidden">
+              {/* Header */}
+              <div className="flex justify-between px-3 py-1.5 border-b border-rim">
+                <span className="text-[10px] font-mono text-ink-dim/60 uppercase tracking-widest">Date</span>
+                <div className="flex gap-4">
+                  <span className="text-[10px] font-mono uppercase tracking-widest w-14 text-right" style={{ color: '#34d39970' }}>Ingest</span>
+                  <span className="text-[10px] font-mono uppercase tracking-widest w-12 text-right" style={{ color: '#38bdf870' }}>Chat</span>
+                  <span className="text-[10px] font-mono uppercase tracking-widest w-10 text-right" style={{ color: '#f0a03070' }}>Lint</span>
+                </div>
+              </div>
+              {byDay.map(day => (
+                <div key={day.date} className="flex justify-between px-3 py-2 border-b border-rim/40 last:border-0">
+                  <span className="text-[11px] font-mono text-ink-dim">{day.date}</span>
+                  <div className="flex gap-4">
+                    <span className="text-[11px] font-mono w-14 text-right" style={{ color: day.ingest > 0 ? '#34d399' : undefined }}>
+                      {day.ingest > 0 ? fmt(day.ingest) : <span className="text-ink-dim/40">—</span>}
+                    </span>
+                    <span className="text-[11px] font-mono w-12 text-right" style={{ color: day.chat > 0 ? '#38bdf8' : undefined }}>
+                      {day.chat > 0 ? fmt(day.chat) : <span className="text-ink-dim/40">—</span>}
+                    </span>
+                    <span className="text-[11px] font-mono w-10 text-right" style={{ color: day.lint > 0 ? '#f0a030' : undefined }}>
+                      {day.lint > 0 ? fmt(day.lint) : <span className="text-ink-dim/40">—</span>}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Ceiling config */}
+          <div className="mt-4">
+            <label className="block">
+              <p className="text-xs text-ink-dim mb-1.5">Monthly ceiling (USD)</p>
+              <input
+                type="number"
+                value={costCeiling}
+                onChange={e => setCostCeiling(e.target.value)}
+                className="w-full bg-base border border-rim rounded px-3 py-2 text-sm text-ink font-mono input-amber-focus"
+              />
+            </label>
+          </div>
         </Section>
 
         <Section icon={Clock} title="Lint">
