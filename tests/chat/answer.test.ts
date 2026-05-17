@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import '../__mocks__/anthropic';
 import { mockChat, resetAnthropicMocks } from '../__mocks__/anthropic';
+import { chat } from '../../src/llm/anthropic';
 import { answer } from '../../src/chat/answer';
 
 describe('chat.answer', () => {
@@ -34,10 +35,38 @@ describe('chat.answer', () => {
       inputTokens: 500, outputTokens: 80, usd: 0.005,
     });
 
-    const result = await answer('what is foo?', [], { root: dir });
+    const vault = { root: dir };
+    const result = await answer('what is foo?', [], vault);
     expect(result.text).toContain('[[concepts/foo]]');
     expect(result.citations).toContain('concepts/foo');
     expect(result.cost.usd).toBeGreaterThan(0);
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('forwards model and thinking to the LLM', async () => {
+    const chatMock = vi.mocked(chat);
+    // First call: findRelevantPages pick_pages tool
+    chatMock.mockResolvedValueOnce({
+      text: '',
+      toolUse: { name: 'pick_pages', input: { paths: [] } },
+      inputTokens: 10,
+      outputTokens: 5,
+      usd: 0.001,
+    });
+    // Second call: the actual answer — this is what we assert opts on
+    chatMock.mockResolvedValueOnce({
+      text: 'ok',
+      inputTokens: 10,
+      outputTokens: 5,
+      usd: 0.001,
+    });
+
+    const vault = { root: dir };
+    await answer('what is X?', [], vault, { model: 'opus', thinking: true });
+
+    const callOpts = chatMock.mock.calls[chatMock.mock.calls.length - 1][0];
+    expect(callOpts.model).toBe('opus');
+    expect(callOpts.thinking).toEqual({ type: 'enabled', budget_tokens: 8000 });
     await rm(dir, { recursive: true, force: true });
   });
 });
