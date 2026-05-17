@@ -264,10 +264,20 @@ app.get('/api/queue', async (_req: Request, res: Response) => {
 
 app.post('/api/chat', async (req: Request, res: Response) => {
   try {
-    const { query, history } = req.body as { query?: string; history?: unknown[] };
+    const { query, history, model: rawModel, thinking: rawThinking } = req.body as {
+      query?: string;
+      history?: unknown[];
+      model?: string;
+      thinking?: boolean;
+    };
     if (!query) return res.status(400).json({ error: 'query required' });
+    const VALID_MODELS = ['haiku', 'sonnet', 'opus'] as const;
+    const model = VALID_MODELS.includes(rawModel as typeof VALID_MODELS[number])
+      ? (rawModel as typeof VALID_MODELS[number])
+      : 'sonnet';
+    const thinking = rawThinking === true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await answer(query, (history ?? []) as any, vault);
+    const result = await answer(query, (history ?? []) as any, vault, { model, thinking });
     res.json({ text: result.text });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -336,9 +346,22 @@ app.delete('/api/source', async (req: Request, res: Response) => {
     // Delete raw source file
     await unlink(pjoin(VAULT_PATH, path));
 
-    // Cascade: delete wiki pages that reference this source
+    // Slug derived from raw path: "raw/sources/foo-bar.md" → "foo-bar"
+    const slug = path.replace('raw/sources/', '').replace(/\.md$/, '');
+
+    // Cascade: delete wiki pages that reference this source in their sources[] frontmatter
     const pages = await listPages(vault);
     const toDelete = pages.filter(p => p.frontmatter.sources?.includes(path));
+
+    // Also delete the source summary page (wiki/sources/<slug>.md) directly,
+    // because older pages written before the sources[] fix have sources: []
+    // and would otherwise survive the provenance-based filter above.
+    const sourceSummaryPath = `sources/${slug}`;
+    const hasSummaryPage = pages.some(p => p.path === sourceSummaryPath);
+    if (hasSummaryPage && !toDelete.some(p => p.path === sourceSummaryPath)) {
+      toDelete.push(pages.find(p => p.path === sourceSummaryPath)!);
+    }
+
     for (const p of toDelete) {
       try {
         await unlink(pjoin(VAULT_PATH, 'wiki', `${p.path}.md`));
