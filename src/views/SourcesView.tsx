@@ -75,12 +75,18 @@ export function SourcesView() {
   const [deleting, setDeleting]       = useState<string | null>(null);
   const [notice, setNotice]           = useState('');
   const [error, setError]             = useState('');
+  const [costsMap, setCostsMap]       = useState<Record<string, number>>({});
 
   async function load() {
     try {
-      const r = await fetch('/api/sources');
-      const data = await r.json() as SourceMeta[];
+      const [sourcesRes, costsRes] = await Promise.all([
+        fetch('/api/sources'),
+        fetch('/api/costs/sources'),
+      ]);
+      const data = await sourcesRes.json() as SourceMeta[];
+      const costs = await costsRes.json() as Record<string, number>;
       setSources(data.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)));
+      setCostsMap(costs);
     } catch {
       setError('Failed to load sources');
     } finally {
@@ -196,6 +202,16 @@ export function SourcesView() {
                       <span className="text-[11px] font-mono text-ink-dim hidden sm:block">
                         {formatDate(src.modifiedAt)}
                       </span>
+                      {/* Ingest cost */}
+                      <div className="text-right hidden sm:block" style={{ minWidth: '52px' }}>
+                        {costsMap[src.path] !== undefined
+                          ? <span className="text-[12px] font-mono" style={{ color: '#34d399' }}>
+                              ${costsMap[src.path].toFixed(3)}
+                            </span>
+                          : <span className="text-[12px] font-mono text-ink-dim">—</span>
+                        }
+                        <p className="text-[9px] text-ink-dim/50 font-mono">ingest</p>
+                      </div>
                       <button
                         onClick={() => setConfirmPath(src.path)}
                         disabled={isDeleting}
