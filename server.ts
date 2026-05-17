@@ -17,6 +17,7 @@ import { htmlToMarkdown } from './src/sources/url.js';
 import { pdfToMarkdown } from './src/sources/pdf.js';
 import { writeFileText, readFileText } from './src/lib/fs.js';
 import { sumLogCosts } from './src/lib/cost.js';
+import { buildGraph } from './src/vault/graph.js';
 
 // --- env validation ---
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -219,6 +220,38 @@ app.post('/api/ingest/path', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/ingest/upload', express.raw({ type: 'application/pdf', limit: '50mb' }), async (req: Request, res: Response) => {
+  try {
+    const buffer = req.body as Buffer;
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      return res.status(400).json({ error: 'PDF body required (Content-Type: application/pdf)' });
+    }
+    const filename = ((req.headers['x-filename'] as string) ?? 'upload.pdf')
+      .replace(/[/\\]/g, '');
+    const slug = filename.replace(/\.pdf$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'upload';
+
+    const pdfParse = ((await import('pdf-parse')) as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
+    const { text } = await pdfParse(buffer);
+    if (!text.trim()) return res.status(422).json({ error: 'No text extracted from PDF' });
+
+    const rawPath = `raw/sources/${slug}.md`;
+    await writeFileText(join(VAULT_PATH, rawPath), text);
+    const hash = sha256(text);
+    try {
+      const task = await queue.enqueue(rawPath, hash);
+      triggerWorker();
+      res.json({ jobId: task.id });
+    } catch {
+      const existing = queueBackend.select<{ id: number; status: string }[]>(
+        'SELECT id, status FROM ingest_queue WHERE sha256 = ?', [hash],
+      );
+      res.json({ jobId: existing[0]?.id ?? 0, cached: true });
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.get('/api/queue', async (_req: Request, res: Response) => {
   try {
     res.json(await queue.list());
@@ -243,6 +276,14 @@ app.post('/api/lint', async (_req: Request, res: Response) => {
   try {
     await runLint(vault);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/graph', async (_req: Request, res: Response) => {
+  try {
+    res.json(await buildGraph(vault));
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
