@@ -100,7 +100,7 @@ export function ChatView() {
             <button
               onClick={() => !thinkingDisabled && setThinking(t => !t)}
               disabled={thinkingDisabled}
-              className="w-8 h-4.5 rounded-full relative transition-colors disabled:cursor-not-allowed"
+              className="rounded-full relative transition-colors disabled:cursor-not-allowed"
               style={{
                 background: thinking && !thinkingDisabled
                   ? 'var(--color-amber)'
@@ -108,16 +108,18 @@ export function ChatView() {
                 border: '1px solid var(--color-rim)',
                 height: '18px',
                 width: '32px',
+                padding: 0,
               }}
               title={thinkingDisabled ? 'Extended thinking not available for Haiku' : 'Toggle extended thinking'}
             >
               <span
-                className="absolute top-0.5 rounded-full bg-white transition-transform"
+                className="absolute rounded-full transition-transform"
                 style={{
                   width: '12px',
                   height: '12px',
-                  top: '2px',
-                  transform: thinking && !thinkingDisabled ? 'translateX(16px)' : 'translateX(2px)',
+                  top: '3px',
+                  left: '2px',
+                  transform: thinking && !thinkingDisabled ? 'translateX(16px)' : 'translateX(0)',
                   background: thinking && !thinkingDisabled ? '#000' : '#fff',
                 }}
               />

@@ -19,7 +19,10 @@ const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('ingest');
+  const [tab, setTab] = useState<Tab>(() => {
+    if (new URLSearchParams(window.location.search).has('wiki')) return 'wiki';
+    return 'ingest';
+  });
 
   return (
     <div className="h-screen flex bg-base text-ink overflow-hidden">

@@ -104,22 +104,6 @@ export function WikiView() {
   // slug → page id map (e.g. "attention" → "concepts/attention")
   const slugMap = useRef(new Map<string, string>());
 
-  useEffect(() => {
-    fetch('/api/pages')
-      .then(r => r.json())
-      .then((data: PageMeta[]) => {
-        setPages(data);
-        const m = new Map<string, string>();
-        for (const p of data) {
-          m.set(p.id.split('/').pop()!, p.id);  // slug → full id
-          m.set(p.id, p.id);                    // full id → full id (direct match)
-        }
-        slugMap.current = m;
-        setLoading(false);
-      })
-      .catch(() => { setError('Failed to load pages'); setLoading(false); });
-  }, []);
-
   const loadPage = useCallback(async (id: string) => {
     setSourcePanel(null);
     setPageLoading(true);
@@ -134,6 +118,25 @@ export function WikiView() {
     }
   }, []);
 
+  useEffect(() => {
+    fetch('/api/pages')
+      .then(r => r.json())
+      .then((data: PageMeta[]) => {
+        setPages(data);
+        const m = new Map<string, string>();
+        for (const p of data) {
+          m.set(p.id.split('/').pop()!, p.id);
+          m.set(p.id, p.id);
+        }
+        slugMap.current = m;
+        setLoading(false);
+        // Auto-load page from ?wiki= URL param (used when opening wikilinks in new tab)
+        const wikiParam = new URLSearchParams(window.location.search).get('wiki');
+        if (wikiParam) loadPage(wikiParam);
+      })
+      .catch(() => { setError('Failed to load pages'); setLoading(false); });
+  }, [loadPage]);
+
   const openSource = useCallback(async (sourcePath: string) => {
     setSourcePanelLoading(true);
     try {
@@ -147,11 +150,11 @@ export function WikiView() {
     }
   }, []);
 
-  // Handle [[wikilink]] clicks: resolve slug → page id and navigate
+  // Handle [[wikilink]] clicks: open the target page in a new tab
   const handleWikilink = useCallback((target: string) => {
     const id = slugMap.current.get(target) ?? slugMap.current.get(target.toLowerCase());
-    if (id) loadPage(id);
-  }, [loadPage]);
+    if (id) window.open(`/?wiki=${encodeURIComponent(id)}`, '_blank');
+  }, []);
 
   const filtered = pages.filter(p =>
     search === '' || p.title.toLowerCase().includes(search.toLowerCase())
@@ -251,7 +254,7 @@ export function WikiView() {
           )}
 
           {selected && !pageLoading && (
-            <div className="max-w-4xl mx-auto px-8 py-8">
+            <div className="max-w-5xl mx-auto px-6 py-8">
               {/* Header */}
               <div className="mb-6 pb-5 border-b border-rim">
                 <div className="flex items-start gap-3 mb-3">
@@ -324,13 +327,13 @@ export function WikiView() {
                         </a>
                       );
                     },
-                    h1: ({ children }) => <h1 className="text-lg font-semibold text-ink mt-6 mb-2">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-base font-semibold text-ink mt-5 mb-2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-sm font-semibold text-ink mt-4 mb-1.5">{children}</h3>,
-                    p: ({ children }) => <p className="text-sm text-ink leading-relaxed mb-3">{children}</p>,
-                    ul: ({ children }) => <ul className="list-disc list-inside text-sm text-ink space-y-1 mb-3 pl-2">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal list-inside text-sm text-ink space-y-1 mb-3 pl-2">{children}</ol>,
-                    li: ({ children }) => <li className="text-sm text-ink">{children}</li>,
+                    h1: ({ children }) => <h1 className="text-xl font-semibold text-ink mt-7 mb-3">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-lg font-semibold text-ink mt-6 mb-2.5">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-base font-semibold text-ink mt-5 mb-2">{children}</h3>,
+                    p: ({ children }) => <p className="text-base text-ink leading-7 mb-4">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc list-inside text-base text-ink space-y-1.5 mb-4 pl-2">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside text-base text-ink space-y-1.5 mb-4 pl-2">{children}</ol>,
+                    li: ({ children }) => <li className="text-base text-ink leading-7">{children}</li>,
                     code: ({ children, className }) => className
                       ? <code className="block bg-card border border-rim rounded px-3 py-2 text-xs font-mono text-ink-dim overflow-x-auto mb-3">{children}</code>
                       : <code className="bg-card border border-rim rounded px-1.5 py-0.5 text-xs font-mono text-amber/80">{children}</code>,

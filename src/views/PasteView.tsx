@@ -280,7 +280,7 @@ export function PasteView() {
                 'rounded-full relative shrink-0 mt-0.5 transition-colors',
                 visionPdf ? 'bg-amber' : 'bg-card border border-rim',
               ].join(' ')}
-              style={{ height: '18px', width: '32px' }}
+              style={{ height: '18px', width: '32px', padding: 0 }}
               title="Toggle vision mode"
             >
               <span
@@ -288,8 +288,9 @@ export function PasteView() {
                 style={{
                   width: '12px',
                   height: '12px',
-                  top: '2px',
-                  transform: visionPdf ? 'translateX(16px)' : 'translateX(2px)',
+                  top: '3px',
+                  left: '2px',
+                  transform: visionPdf ? 'translateX(16px)' : 'translateX(0)',
                   background: visionPdf ? '#000' : '#fff',
                 }}
               />
