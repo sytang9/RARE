@@ -19,3 +19,28 @@ export async function pdfToMarkdown(absPath: string): Promise<string> {
     throw new Error(err instanceof Error ? err.message : 'PDF extraction failed');
   }
 }
+
+export interface PdfDocumentBlock {
+  type: 'document';
+  source: {
+    type: 'base64';
+    media_type: 'application/pdf';
+    data: string;
+  };
+}
+
+export async function pdfToDocumentBlock(absPath: string): Promise<PdfDocumentBlock> {
+  if (!absPath || !absPath.endsWith('.pdf')) {
+    throw new Error(`pdfToDocumentBlock: expected an absolute .pdf path, got: ${absPath}`);
+  }
+  const { readFile } = await import('node:fs/promises');
+  const buffer = await readFile(absPath);
+  return {
+    type: 'document',
+    source: {
+      type: 'base64',
+      media_type: 'application/pdf',
+      data: buffer.toString('base64'),
+    },
+  };
+}

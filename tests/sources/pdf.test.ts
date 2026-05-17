@@ -23,3 +23,24 @@ describe('sources.pdf.pdfToMarkdown', () => {
     await expect(pdfToMarkdown('/bad.pdf')).rejects.toThrow('pdf parse error');
   });
 });
+
+it('pdfToDocumentBlock returns a base64 document block', async () => {
+  const { pdfToDocumentBlock } = await import('../../src/sources/pdf');
+  const { writeFile, unlink } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+
+  // minimal 1-byte "pdf" stub for testing
+  const tmpPath = join(tmpdir(), 'test-stub.pdf');
+  await writeFile(tmpPath, Buffer.from('stub'));
+  try {
+    const block = await pdfToDocumentBlock(tmpPath);
+    expect(block.type).toBe('document');
+    expect(block.source.type).toBe('base64');
+    expect(block.source.media_type).toBe('application/pdf');
+    expect(typeof block.source.data).toBe('string');
+    expect(block.source.data.length).toBeGreaterThan(0);
+  } finally {
+    await unlink(tmpPath);
+  }
+});
