@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BookOpen, Search, FileText, Users, Lightbulb, ChevronRight } from 'lucide-react';
+import { BookOpen, Search, FileText, Users, Lightbulb, ChevronRight, X, ExternalLink } from 'lucide-react';
 
 type PageType = 'concept' | 'entity' | 'source';
 
@@ -21,6 +21,11 @@ interface PageDetail {
     updated: string;
   };
   body: string;
+}
+
+interface SourcePanel {
+  path: string;       // raw/sources/foo.md
+  text: string;
 }
 
 const TYPE_COLOR: Record<PageType, string> = {
@@ -53,30 +58,70 @@ function TypeBadge({ type }: { type: PageType }) {
   );
 }
 
-function WikilinkRenderer({ href, children }: { href?: string; children?: React.ReactNode }) {
+// Slide-in panel showing raw source text
+function SourceDrawer({ panel, onClose }: { panel: SourcePanel; onClose: () => void }) {
+  const slug = panel.path.replace('raw/sources/', '').replace(/\.md$/, '');
   return (
-    <span className="text-amber/80 hover:text-amber cursor-pointer underline decoration-amber/30">
-      {children}
-    </span>
+    <div className="absolute inset-y-0 right-0 w-[480px] max-w-full bg-panel border-l border-rim flex flex-col z-20 shadow-2xl"
+         style={{ animation: 'view-in 0.18s ease-out' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-rim shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <FileText size={13} className="text-emerald-400 shrink-0" />
+          <span className="text-[13px] font-mono text-ink truncate">{slug}</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-ink-dim hover:text-ink hover:bg-card transition-colors"
+        >
+          <X size={13} />
+        </button>
+      </div>
+      {/* Label */}
+      <div className="px-5 py-2 border-b border-rim shrink-0">
+        <span className="text-[10px] font-mono text-ink-dim uppercase tracking-widest">raw source</span>
+      </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <pre className="text-[11px] font-mono text-ink-dim leading-relaxed whitespace-pre-wrap break-words">
+          {panel.text}
+        </pre>
+      </div>
+    </div>
   );
 }
 
 export function WikiView() {
-  const [pages, setPages]         = useState<PageMeta[]>([]);
-  const [selected, setSelected]   = useState<PageDetail | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [pages, setPages]             = useState<PageMeta[]>([]);
+  const [selected, setSelected]       = useState<PageDetail | null>(null);
+  const [loading, setLoading]         = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
-  const [search, setSearch]       = useState('');
-  const [error, setError]         = useState('');
+  const [search, setSearch]           = useState('');
+  const [error, setError]             = useState('');
+  const [sourcePanel, setSourcePanel] = useState<SourcePanel | null>(null);
+  const [sourcePanelLoading, setSourcePanelLoading] = useState(false);
+
+  // slug → page id map (e.g. "attention" → "concepts/attention")
+  const slugMap = useRef(new Map<string, string>());
 
   useEffect(() => {
     fetch('/api/pages')
       .then(r => r.json())
-      .then((data: PageMeta[]) => { setPages(data); setLoading(false); })
+      .then((data: PageMeta[]) => {
+        setPages(data);
+        const m = new Map<string, string>();
+        for (const p of data) {
+          m.set(p.id.split('/').pop()!, p.id);  // slug → full id
+          m.set(p.id, p.id);                    // full id → full id (direct match)
+        }
+        slugMap.current = m;
+        setLoading(false);
+      })
       .catch(() => { setError('Failed to load pages'); setLoading(false); });
   }, []);
 
   const loadPage = useCallback(async (id: string) => {
+    setSourcePanel(null);
     setPageLoading(true);
     try {
       const r = await fetch(`/api/page?path=${encodeURIComponent(id)}`);
@@ -89,6 +134,25 @@ export function WikiView() {
     }
   }, []);
 
+  const openSource = useCallback(async (sourcePath: string) => {
+    setSourcePanelLoading(true);
+    try {
+      const r = await fetch(`/api/source?path=${encodeURIComponent(sourcePath)}`);
+      const data = await r.json() as { path: string; text: string };
+      setSourcePanel({ path: data.path, text: data.text });
+    } catch {
+      setError('Failed to load source');
+    } finally {
+      setSourcePanelLoading(false);
+    }
+  }, []);
+
+  // Handle [[wikilink]] clicks: resolve slug → page id and navigate
+  const handleWikilink = useCallback((target: string) => {
+    const id = slugMap.current.get(target) ?? slugMap.current.get(target.toLowerCase());
+    if (id) loadPage(id);
+  }, [loadPage]);
+
   const filtered = pages.filter(p =>
     search === '' || p.title.toLowerCase().includes(search.toLowerCase())
   );
@@ -98,9 +162,9 @@ export function WikiView() {
     { concept: [], entity: [], source: [] },
   );
 
-  // Convert [[wikilinks]] in body to markdown links so react-markdown can handle them
+  // Convert [[wikilinks]] to markdown links prefixed with "wiki:" so we can intercept them
   function processBody(body: string): string {
-    return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => `[${target}](wiki:${target})`);
+    return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => `[${target}](wiki:${encodeURIComponent(target)})`);
   }
 
   const empty = !loading && pages.length === 0;
@@ -109,7 +173,6 @@ export function WikiView() {
     <div className="h-full flex overflow-hidden">
       {/* ── Left panel: page list ──────────────────────────────── */}
       <div className="w-[260px] shrink-0 flex flex-col border-r border-rim bg-panel overflow-hidden">
-        {/* Search */}
         <div className="px-3 py-3 border-b border-rim">
           <div className="relative">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
@@ -122,14 +185,9 @@ export function WikiView() {
           </div>
         </div>
 
-        {/* Page list */}
         <div className="flex-1 overflow-y-auto py-2">
-          {loading && (
-            <p className="text-xs text-ink-dim px-4 py-3">Loading…</p>
-          )}
-          {empty && (
-            <p className="text-xs text-ink-dim px-4 py-3">No pages yet. Ingest some sources first.</p>
-          )}
+          {loading && <p className="text-xs text-ink-dim px-4 py-3">Loading…</p>}
+          {empty   && <p className="text-xs text-ink-dim px-4 py-3">No pages yet. Ingest some sources first.</p>}
           {(['concept', 'entity', 'source'] as PageType[]).map(type => {
             const group = grouped[type];
             if (group.length === 0) return null;
@@ -138,10 +196,7 @@ export function WikiView() {
               <div key={type} className="mb-3">
                 <div className="flex items-center gap-2 px-3 py-1.5">
                   <Icon size={11} style={{ color: TYPE_COLOR[type] }} />
-                  <span
-                    className="text-[10px] font-mono uppercase tracking-widest"
-                    style={{ color: TYPE_COLOR[type] }}
-                  >
+                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: TYPE_COLOR[type] }}>
                     {TYPE_LABEL[type]} ({group.length})
                   </span>
                 </div>
@@ -165,7 +220,6 @@ export function WikiView() {
           })}
         </div>
 
-        {/* Footer */}
         {!loading && pages.length > 0 && (
           <div className="px-3 py-2 border-t border-rim">
             <p className="text-[10px] font-mono text-ink-dim">{pages.length} pages</p>
@@ -173,62 +227,103 @@ export function WikiView() {
         )}
       </div>
 
-      {/* ── Right panel: page content ──────────────────────────── */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {!selected && !pageLoading && (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-center select-none">
-            <BookOpen size={28} className="text-ink-dim opacity-30" />
-            <p className="text-sm text-ink-dim">Select a page to read.</p>
-            <p className="text-xs text-ink-dim opacity-50">Pages are generated from ingested sources.</p>
-          </div>
-        )}
-
-        {pageLoading && (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm text-ink-dim font-mono">loading…</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="h-full flex items-center justify-center">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        {selected && !pageLoading && (
-          <div className="max-w-2xl mx-auto px-8 py-8">
-            {/* Header */}
-            <div className="mb-6 pb-5 border-b border-rim">
-              <div className="flex items-start gap-3 mb-3">
-                <TypeBadge type={selected.frontmatter.type} />
-                <span className="text-[10px] font-mono text-ink-dim mt-0.5">
-                  updated {new Date(selected.frontmatter.updated).toLocaleDateString()}
-                </span>
-              </div>
-              <h1 className="text-2xl font-semibold text-ink tracking-tight">
-                {selected.frontmatter.title}
-              </h1>
-              {selected.frontmatter.sources.length > 0 && (
-                <p className="text-xs text-ink-dim mt-2 font-mono">
-                  sources: {selected.frontmatter.sources.join(', ')}
-                </p>
-              )}
+      {/* ── Right panel: page content + optional source drawer ──── */}
+      <div className="flex-1 min-w-0 overflow-hidden relative">
+        <div className="h-full overflow-y-auto">
+          {!selected && !pageLoading && (
+            <div className="h-full flex flex-col items-center justify-center gap-3 text-center select-none">
+              <BookOpen size={28} className="text-ink-dim opacity-30" />
+              <p className="text-sm text-ink-dim">Select a page to read.</p>
+              <p className="text-xs text-ink-dim opacity-50">Pages are generated from ingested sources.</p>
             </div>
+          )}
 
-            {/* Body */}
-            {selected.body.trim() ? (
-              <div className="prose prose-sm prose-invert max-w-none wiki-body">
+          {pageLoading && (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-sm text-ink-dim font-mono">loading…</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="px-8 pt-8">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {selected && !pageLoading && (
+            <div className="max-w-2xl mx-auto px-8 py-8">
+              {/* Header */}
+              <div className="mb-6 pb-5 border-b border-rim">
+                <div className="flex items-start gap-3 mb-3">
+                  <TypeBadge type={selected.frontmatter.type} />
+                  <span className="text-[10px] font-mono text-ink-dim mt-0.5">
+                    updated {new Date(selected.frontmatter.updated).toLocaleDateString()}
+                  </span>
+                </div>
+                <h1 className="text-2xl font-semibold text-ink tracking-tight mb-3">
+                  {selected.frontmatter.title}
+                </h1>
+
+                {/* Source references — clickable */}
+                {selected.frontmatter.sources.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-[10px] font-mono text-ink-dim self-center">sources:</span>
+                    {selected.frontmatter.sources.map(src => {
+                      const slug = src.replace('raw/sources/', '').replace(/\.md$/, '');
+                      return (
+                        <button
+                          key={src}
+                          onClick={() => openSource(src)}
+                          className={[
+                            'flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors',
+                            sourcePanel?.path === src
+                              ? 'border-emerald-500/50 text-emerald-400 bg-emerald-900/20'
+                              : 'border-rim text-ink-dim hover:border-emerald-500/40 hover:text-emerald-400',
+                          ].join(' ')}
+                        >
+                          <ExternalLink size={10} />
+                          {slug}
+                        </button>
+                      );
+                    })}
+                    {sourcePanelLoading && (
+                      <span className="text-[10px] font-mono text-ink-dim self-center">loading…</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Body */}
+              {selected.body.trim() ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    a: ({ href, children }) =>
-                      href?.startsWith('wiki:') ? (
-                        <WikilinkRenderer>{children}</WikilinkRenderer>
-                      ) : (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-amber/80 hover:text-amber underline decoration-amber/30">
+                    a: ({ href, children }) => {
+                      if (href?.startsWith('wiki:')) {
+                        const target = decodeURIComponent(href.slice(5));
+                        const exists = !!slugMap.current.get(target) || !!slugMap.current.get(target.toLowerCase());
+                        return (
+                          <button
+                            onClick={() => handleWikilink(target)}
+                            className={[
+                              'font-mono text-[0.85em] px-1 py-0.5 rounded underline underline-offset-2 transition-colors',
+                              exists
+                                ? 'text-amber/80 hover:text-amber decoration-amber/40 hover:bg-[rgba(240,160,48,0.08)]'
+                                : 'text-ink-dim decoration-ink-dim/30 cursor-default',
+                            ].join(' ')}
+                            title={exists ? `Go to ${target}` : `Page "${target}" not found`}
+                          >
+                            {String(children)}
+                          </button>
+                        );
+                      }
+                      return (
+                        <a href={href} target="_blank" rel="noopener noreferrer"
+                           className="text-amber/80 hover:text-amber underline decoration-amber/30">
                           {children}
                         </a>
-                      ),
+                      );
+                    },
                     h1: ({ children }) => <h1 className="text-lg font-semibold text-ink mt-6 mb-2">{children}</h1>,
                     h2: ({ children }) => <h2 className="text-base font-semibold text-ink mt-5 mb-2">{children}</h2>,
                     h3: ({ children }) => <h3 className="text-sm font-semibold text-ink mt-4 mb-1.5">{children}</h3>,
@@ -247,11 +342,16 @@ export function WikiView() {
                 >
                   {processBody(selected.body)}
                 </ReactMarkdown>
-              </div>
-            ) : (
-              <p className="text-sm text-ink-dim italic">No content yet.</p>
-            )}
-          </div>
+              ) : (
+                <p className="text-sm text-ink-dim italic">No content yet.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Source drawer — slides in over the right panel */}
+        {sourcePanel && (
+          <SourceDrawer panel={sourcePanel} onClose={() => setSourcePanel(null)} />
         )}
       </div>
     </div>
