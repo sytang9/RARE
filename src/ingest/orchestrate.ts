@@ -7,6 +7,7 @@ import { updateIndex, readIndex } from '../vault/indexFile';
 import { appendLog } from '../vault/log';
 import { regenerateOverview } from '../vault/overview';
 import { type VaultRoot } from '../vault/root';
+import { pdfToDocumentBlock, type PdfDocumentBlock } from '../sources/pdf';
 
 const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -57,27 +58,42 @@ const summaryForPage = (path: string, analysis: AnalyzeResult, rawPath: string):
 };
 
 export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<void> {
-  const sourceText = await readFileText(pathJoin(vault.root, rawPath));
+  const absPath = pathJoin(vault.root, rawPath);
+  const isVisionPdf = rawPath.endsWith('.pdf');
+
+  let sourceContent: string | PdfDocumentBlock;
+  let sourceExcerpt: string;
+
+  if (isVisionPdf) {
+    sourceContent = await pdfToDocumentBlock(absPath);
+    sourceExcerpt = ''; // filled from analysis.source_summary below
+  } else {
+    const text = await readFileText(absPath);
+    sourceContent = text;
+    sourceExcerpt = text;
+  }
+
   const purpose = await safeRead(pathJoin(vault.root, 'purpose.md'));
   const schema = await safeRead(pathJoin(vault.root, 'schema.md'));
   const indexBody = await readIndex(vault);
 
   const { result: analysis, usd: analyzeUsd } = await analyze({
-    sourceContent: sourceText,
+    sourceContent,
     purpose,
     schema,
     index: indexBody,
   });
 
+  if (isVisionPdf) sourceExcerpt = analysis.source_summary;
+
   const { pages, usd: generateUsd } = await generate({
     analysis,
     purpose,
     schema,
-    sourceExcerpt: sourceText,
+    sourceExcerpt,
   });
 
   const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;
-
   const now = new Date().toISOString();
 
   for (const raw of pages) {
@@ -87,13 +103,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
     const title = slug.replace(/-/g, ' ');
     await writePage(vault, {
       path: p.path,
-      frontmatter: {
-        type,
-        title,
-        sources: [rawPath],
-        created: now,
-        updated: now,
-      },
+      frontmatter: { type, title, sources: [rawPath], created: now, updated: now },
       body: p.body,
     });
     const summary = summaryForPage(p.path, analysis, rawPath);

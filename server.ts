@@ -228,26 +228,46 @@ app.post('/api/ingest/upload', express.raw({ type: 'application/pdf', limit: '50
     if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
       return res.status(400).json({ error: 'PDF body required (Content-Type: application/pdf)' });
     }
+    const visionPdf = req.query.visionPdf === 'true';
     const filename = ((req.headers['x-filename'] as string) ?? 'upload.pdf')
       .replace(/[/\\]/g, '');
     const slug = filename.replace(/\.pdf$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'upload';
 
-    const pdfParse = ((await import('pdf-parse')) as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
-    const { text } = await pdfParse(buffer);
-    if (!text.trim()) return res.status(422).json({ error: 'No text extracted from PDF' });
-
-    const rawPath = `raw/sources/${slug}.md`;
-    await writeFileText(join(VAULT_PATH, rawPath), text);
-    const hash = sha256(text);
-    try {
-      const task = await queue.enqueue(rawPath, hash);
-      triggerWorker();
-      res.json({ jobId: task.id });
-    } catch {
-      const existing = queueBackend.select<{ id: number; status: string }[]>(
-        'SELECT id, status FROM ingest_queue WHERE sha256 = ?', [hash],
-      );
-      res.json({ jobId: existing[0]?.id ?? 0, cached: true });
+    if (visionPdf) {
+      // Vision mode: store raw PDF bytes, SHA of bytes
+      const rawPath = `raw/sources/${slug}.pdf`;
+      const destPath = join(VAULT_PATH, rawPath);
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(destPath, buffer);
+      const hash = sha256(buffer.toString('base64'));
+      try {
+        const task = await queue.enqueue(rawPath, hash);
+        triggerWorker();
+        res.json({ jobId: task.id });
+      } catch {
+        const existing = queueBackend.select<{ id: number; status: string }[]>(
+          'SELECT id, status FROM ingest_queue WHERE sha256 = ?', [hash],
+        );
+        res.json({ jobId: existing[0]?.id ?? 0, cached: true });
+      }
+    } else {
+      // Text mode: extract text, store as .md, SHA of text
+      const pdfParse = ((await import('pdf-parse')) as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
+      const { text } = await pdfParse(buffer);
+      if (!text.trim()) return res.status(422).json({ error: 'No text extracted from PDF' });
+      const rawPath = `raw/sources/${slug}.md`;
+      await writeFileText(join(VAULT_PATH, rawPath), text);
+      const hash = sha256(text);
+      try {
+        const task = await queue.enqueue(rawPath, hash);
+        triggerWorker();
+        res.json({ jobId: task.id });
+      } catch {
+        const existing = queueBackend.select<{ id: number; status: string }[]>(
+          'SELECT id, status FROM ingest_queue WHERE sha256 = ?', [hash],
+        );
+        res.json({ jobId: existing[0]?.id ?? 0, cached: true });
+      }
     }
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -310,10 +330,10 @@ app.get('/api/sources', async (_req: Request, res: Response) => {
     let files: string[] = [];
     try { files = await readdir(rawDir); } catch { /* empty */ }
     const sources = await Promise.all(
-      files.filter(f => f.endsWith('.md')).map(async f => {
+      files.filter(f => f.endsWith('.md') || f.endsWith('.pdf')).map(async f => {
         const full = join(rawDir, f);
         const s    = await stat(full);
-        const slug = f.replace(/\.md$/, '');
+        const slug = f.replace(/\.md$/, '').replace(/\.pdf$/, '');
         return { slug, path: `raw/sources/${f}`, sizeBytes: s.size, modifiedAt: s.mtime.toISOString() };
       })
     );

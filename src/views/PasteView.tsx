@@ -51,6 +51,7 @@ export function PasteView() {
   const [jobs, setJobs]           = useState<QueueTask[]>([]);
   const [dragOver, setDragOver]   = useState(false);
   const [pdfFile, setPdfFile]     = useState<File | null>(null);
+  const [visionPdf, setVisionPdf] = useState(false);
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileRef  = useRef<HTMLInputElement>(null);
 
@@ -117,7 +118,8 @@ export function PasteView() {
     setBusy(true);
     setNotice('');
     try {
-      const r = await fetch('/api/ingest/upload', {
+      const url = visionPdf ? '/api/ingest/upload?visionPdf=true' : '/api/ingest/upload';
+      const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/pdf', 'X-Filename': file.name },
         body: file,
@@ -269,6 +271,37 @@ export function PasteView() {
                 </div>
               </>
             )}
+          </div>
+          {/* Vision mode toggle */}
+          <div className="mt-3 flex items-start gap-3 px-1">
+            <button
+              onClick={() => setVisionPdf(v => !v)}
+              className={[
+                'rounded-full relative shrink-0 mt-0.5 transition-colors',
+                visionPdf ? 'bg-amber' : 'bg-card border border-rim',
+              ].join(' ')}
+              style={{ height: '18px', width: '32px' }}
+              title="Toggle vision mode"
+            >
+              <span
+                className="absolute rounded-full transition-transform"
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  top: '2px',
+                  transform: visionPdf ? 'translateX(16px)' : 'translateX(2px)',
+                  background: visionPdf ? '#000' : '#fff',
+                }}
+              />
+            </button>
+            <div>
+              <p className="text-[12px] text-ink-dim">
+                Vision mode — Claude reads images and charts in PDFs
+              </p>
+              <p className="text-[11px] text-amber/70 mt-0.5">
+                Uses significantly more tokens than text-only (~3–10x cost per page)
+              </p>
+            </div>
           </div>
           <input ref={fileRef} type="file" accept=".pdf,application/pdf" className="hidden" onChange={handleFileSelect} />
         </div>
