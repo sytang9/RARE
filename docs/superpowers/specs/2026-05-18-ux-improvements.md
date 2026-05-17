@@ -168,6 +168,54 @@ Replace the current single `monthly_cost_usd` line with a full cost section:
 
 ---
 
+---
+
+## Q8 — Multimodal PDF Ingestion
+
+**Problem:** The current `pdf-parse` text extractor silently drops all images, charts, diagrams, and figures. For research papers or reports where figures carry key information, the wiki pages miss that content entirely.
+
+**Solution:** Use the Anthropic API's native PDF support (beta) as an opt-in mode. When enabled, the raw PDF bytes are sent directly to Claude as a `document` block instead of being pre-extracted as text. Claude reads the full page visually — text, tables, charts, and images all understood together.
+
+### Toggle location
+
+**`src/views/PasteView.tsx`** (the ingest / upload UI) — add a toggle below the PDF drop zone:
+
+```
+[ ] Vision mode — Claude reads images and charts in PDFs
+    ⚠ Uses significantly more tokens than text-only (~3–10× cost per page)
+```
+
+- Default: **off** (text-only, existing behaviour)
+- The warning is always visible next to the toggle, not behind a tooltip
+- Toggle state is local to the session (not persisted)
+
+### Backend
+
+**`src/sources/pdf.ts`** — add `pdfToDocumentBlock(absPath)` that reads the PDF bytes and returns an Anthropic `document` content block:
+```ts
+{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+```
+The existing `pdfToMarkdown()` is unchanged — text-only path stays the default.
+
+**`server.ts` — `POST /api/ingest/path` and `POST /api/ingest/upload`**
+- Accept optional `visionPdf: boolean` in request body
+- When `visionPdf: true` and file is a PDF: skip `pdfToMarkdown`, pass the document block directly to the analyze step instead of raw text
+
+**`src/ingest/analyze.ts`**
+- `AnalyzeInput.sourceContent` becomes `string | AnthropicContentBlock` (union)
+- When it's a document block, pass it as the user message content directly (not inside a text template string)
+- When it's a string (default), behaviour unchanged
+
+**`src/ingest/generate.ts`**
+- `GenerateInput.sourceExcerpt` stays `string`
+- After vision analyze, the `source_summary` field from the analysis result is used as the excerpt for the generate step (the raw PDF bytes aren't re-sent to generate)
+
+### Cost note
+
+Anthropic charges PDF pages as image tokens (~1,500–3,000 tokens per page depending on page complexity). A 20-page research paper in vision mode costs roughly **$0.09–$0.18 with Sonnet** vs ~$0.02 text-only. The in-UI warning is mandatory to make this visible before the user commits.
+
+---
+
 ## File Map
 
 | File | Change |
@@ -180,7 +228,9 @@ Replace the current single `monthly_cost_usd` line with a full cost section:
 | `src/llm/anthropic.ts` | Add Opus to MODEL_IDS; add `thinking` to ChatOptions |
 | `src/chat/answer.ts` | Accept + forward `model` and `thinking` params |
 | `src/lib/cost.ts` | Add `parseCostLog()` |
-| `server.ts` | Add `GET /api/costs`, `GET /api/costs/sources`; update `POST /api/chat` |
+| `src/sources/pdf.ts` | Add `pdfToDocumentBlock()` for vision mode |
+| `src/ingest/analyze.ts` | Accept `string \| document block` as source content |
+| `server.ts` | Add `GET /api/costs`, `GET /api/costs/sources`; update `POST /api/chat`, `POST /api/ingest/*` |
 
 ---
 
@@ -190,3 +240,5 @@ Replace the current single `monthly_cost_usd` line with a full cost section:
 - Per-query cost shown in the chat bubble (v2)
 - Custom date range picker (v2 — Today/Month/All covers the need)
 - Recharts or any charting library (CSS-only bar is sufficient)
+- Vision mode for URL ingestion (URLs are HTML, not PDF — not applicable)
+- Page-by-page screenshot rendering (Anthropic native PDF covers the need without a headless renderer)
