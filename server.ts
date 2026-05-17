@@ -18,6 +18,7 @@ import { pdfToMarkdown } from './src/sources/pdf.js';
 import { writeFileText, readFileText } from './src/lib/fs.js';
 import { sumLogCosts } from './src/lib/cost.js';
 import { buildGraph } from './src/vault/graph.js';
+import { listPages, readPage } from './src/vault/page.js';
 
 // --- env validation ---
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -286,6 +287,28 @@ app.get('/api/graph', async (_req: Request, res: Response) => {
     res.json(await buildGraph(vault));
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  }
+});
+
+// List all wiki pages (lightweight: id, title, type only)
+app.get('/api/pages', async (_req: Request, res: Response) => {
+  try {
+    const pages = await listPages(vault);
+    res.json(pages.map(p => ({ id: p.path, title: p.frontmatter.title, type: p.frontmatter.type })));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Get a single wiki page by path (passed as query param to avoid slash encoding issues)
+app.get('/api/page', async (req: Request, res: Response) => {
+  const path = req.query.path as string | undefined;
+  if (!path || path.includes('..')) { res.status(400).json({ error: 'invalid path' }); return; }
+  try {
+    const page = await readPage(vault, path);
+    res.json(page);
+  } catch {
+    res.status(404).json({ error: 'page not found' });
   }
 });
 

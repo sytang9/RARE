@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Inbox, MessageSquare, Settings, GitBranch } from 'lucide-react';
+import { Inbox, MessageSquare, Settings, GitBranch, BookOpen } from 'lucide-react';
 import { ChatView } from './views/ChatView';
 import { PasteView } from './views/PasteView';
 import { SettingsView } from './views/SettingsView';
 import { GraphView } from './views/GraphView';
+import { WikiView } from './views/WikiView';
 
-type Tab = 'ingest' | 'chat' | 'graph' | 'settings';
+type Tab = 'ingest' | 'chat' | 'wiki' | 'graph' | 'settings';
 
 const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'ingest',   label: 'Ingest',   icon: Inbox },
   { id: 'chat',     label: 'Chat',     icon: MessageSquare },
+  { id: 'wiki',     label: 'Wiki',     icon: BookOpen },
   { id: 'graph',    label: 'Graph',    icon: GitBranch },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -66,6 +68,7 @@ export default function App() {
         <div key={tab} className="view-in h-full">
           {tab === 'ingest'   && <PasteView />}
           {tab === 'chat'     && <ChatView />}
+          {tab === 'wiki'     && <WikiView />}
           {tab === 'graph'    && <GraphView />}
           {tab === 'settings' && <SettingsView />}
         </div>
