@@ -54,5 +54,5 @@ export async function generate(input: GenerateInput): Promise<GeneratedPage[]> {
   if (!result.toolUse || result.toolUse.name !== 'write_pages') {
     throw new Error('Expected tool_use(write_pages)');
   }
-  return (result.toolUse.input as { pages: GeneratedPage[] }).pages;
+  return (result.toolUse.input as { pages?: GeneratedPage[] }).pages ?? [];
 }
