@@ -1,8 +1,9 @@
-export type ModelTier = 'haiku' | 'sonnet';
+export type ModelTier = 'haiku' | 'sonnet' | 'opus';
 
 const PRICING: Record<ModelTier, { inputPerMtok: number; outputPerMtok: number }> = {
   haiku:  { inputPerMtok: 1, outputPerMtok: 5 },
   sonnet: { inputPerMtok: 3, outputPerMtok: 15 },
+  opus:   { inputPerMtok: 15, outputPerMtok: 75 },
 };
 
 export function computeUsd(
