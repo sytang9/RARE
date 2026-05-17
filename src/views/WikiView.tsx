@@ -306,16 +306,12 @@ export function WikiView() {
                       if (href?.includes('wiki:')) {
                         const target = decodeURIComponent(href.split('wiki:')[1]);
                         const exists = !!slugMap.current.get(target) || !!slugMap.current.get(target.toLowerCase());
+                        if (!exists) return <span>{String(children)}</span>;
                         return (
                           <button
                             onClick={(e) => { e.preventDefault(); handleWikilink(target); }}
-                            className={[
-                              'font-mono text-[0.85em] px-1 py-0.5 rounded underline underline-offset-2 transition-colors',
-                              exists
-                                ? 'text-amber/80 hover:text-amber decoration-amber/40 hover:bg-[rgba(240,160,48,0.08)]'
-                                : 'text-ink-dim decoration-ink-dim/30 cursor-default',
-                            ].join(' ')}
-                            title={exists ? `Go to ${target}` : `Page "${target}" not found`}
+                            className="font-mono text-[0.85em] px-1 py-0.5 rounded underline underline-offset-2 transition-colors text-amber/80 hover:text-amber decoration-amber/40 hover:bg-[rgba(240,160,48,0.08)]"
+                            title={`Go to ${target}`}
                           >
                             {String(children)}
                           </button>
