@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Circle, CheckCircle2, XCircle, Loader2, FileText, Upload } from 'lucide-react';
+import { PlaygroundCanvas } from './PlaygroundCanvas';
 
 type TaskStatus = 'pending' | 'processing' | 'done' | 'failed';
 
@@ -15,6 +16,12 @@ interface IngestResult {
   jobId?: number;
   error?: string;
   cached?: boolean;
+}
+
+interface PageMeta {
+  id: string;
+  title: string;
+  type: 'concept' | 'entity' | 'source';
 }
 
 function inputType(val: string): 'url' | 'path' | null {
@@ -52,8 +59,12 @@ export function PasteView() {
   const [dragOver, setDragOver]   = useState(false);
   const [pdfFile, setPdfFile]     = useState<File | null>(null);
   const [visionPdf, setVisionPdf] = useState(false);
-  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const fileRef  = useRef<HTMLInputElement>(null);
+  const [pages, setPages]           = useState<PageMeta[]>([]);
+  const [newPageIds, setNewPageIds] = useState<Set<string>>(new Set());
+  const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileRef        = useRef<HTMLInputElement>(null);
+  const pagesRef       = useRef<PageMeta[]>([]);
+  const prevDoneIdsRef = useRef<Set<number>>(new Set());
 
   const type = inputType(input.trim());
 
@@ -61,9 +72,25 @@ export function PasteView() {
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
       try {
-        const r = await fetch('/api/queue');
+        const r    = await fetch('/api/queue');
         const data = (await r.json()) as QueueTask[];
         setJobs(data.slice().reverse());
+
+        // Detect jobs that just transitioned to done
+        const doneIds   = new Set(data.filter(j => j.status === 'done').map(j => j.id));
+        const newlyDone = [...doneIds].filter(id => !prevDoneIdsRef.current.has(id));
+        prevDoneIdsRef.current = doneIds;
+
+        if (newlyDone.length > 0) {
+          const pr       = await fetch('/api/pages');
+          const newPages = (await pr.json()) as PageMeta[];
+          const capped   = newPages.slice(0, 40);
+          const prevIds  = new Set(pagesRef.current.map(p => p.id));
+          const burst    = new Set(capped.filter(p => !prevIds.has(p.id)).map(p => p.id));
+          setPages(capped);
+          if (burst.size > 0) setNewPageIds(burst);
+        }
+
         const active = data.some(j => j.status === 'pending' || j.status === 'processing');
         if (!active) stopPoll();
       } catch { /* ignore */ }
@@ -83,6 +110,17 @@ export function PasteView() {
   }
 
   useEffect(() => { refreshQueue(); return stopPoll; }, []);
+
+  // Keep pagesRef in sync with pages state
+  useEffect(() => { pagesRef.current = pages; }, [pages]);
+
+  // Fetch pages on mount
+  useEffect(() => {
+    fetch('/api/pages')
+      .then(r => r.json())
+      .then((data: PageMeta[]) => setPages((data as PageMeta[]).slice(0, 40)))
+      .catch(() => { /* non-critical */ });
+  }, []);
 
   async function enqueueResult(r: Response) {
     const json = await r.json() as IngestResult;
@@ -158,7 +196,9 @@ export function PasteView() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-8">
+    <div className="h-full flex overflow-hidden">
+      {/* Left: ingest form */}
+      <div className="w-[480px] shrink-0 overflow-y-auto p-8">
       <div className="max-w-2xl space-y-6">
         <div>
           <h1 className="text-lg font-semibold text-ink mb-1">Ingest Source</h1>
@@ -343,6 +383,16 @@ export function PasteView() {
             </div>
           </div>
         )}
+      </div>
+      </div>
+
+      {/* Right: knowledge orbit playground (hidden on narrow viewports) */}
+      <div className="hidden lg:contents">
+        <PlaygroundCanvas
+          pages={pages}
+          newPageIds={newPageIds}
+          onBurstDone={() => setNewPageIds(new Set())}
+        />
       </div>
     </div>
   );
