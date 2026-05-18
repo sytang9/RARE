@@ -2,7 +2,7 @@ import { readFileText } from '../lib/fs';
 import { pathJoin } from '../lib/path';
 import { analyze, type AnalyzeResult } from './analyze';
 import { generate } from './generate';
-import { writePage } from '../vault/page';
+import { readPage, writePage } from '../vault/page';
 import { updateIndex, readIndex } from '../vault/indexFile';
 import { appendLog } from '../vault/log';
 import { regenerateOverview } from '../vault/overview';
@@ -39,6 +39,21 @@ const safeRead = async (path: string): Promise<string> => {
     return await readFileText(path);
   } catch {
     return '';
+  }
+};
+
+// Merge a new rawPath into an existing page's sources array (dedup, preserve created).
+const mergedFrontmatter = async (
+  vault: VaultRoot,
+  path: string,
+  base: { type: 'source' | 'entity' | 'concept'; title: string; sources: string[]; created: string; updated: string },
+): Promise<typeof base> => {
+  try {
+    const existing = await readPage(vault, path);
+    const merged = Array.from(new Set([...existing.frontmatter.sources, ...base.sources]));
+    return { ...base, sources: merged, created: existing.frontmatter.created };
+  } catch {
+    return base;
   }
 };
 
@@ -114,7 +129,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
     const sourceTitle = analysis.source_title;
     await writePage(vault, {
       path: sourcePath,
-      frontmatter: { type: 'source', title: sourceTitle, sources: [rawPath], created: now, updated: now },
+      frontmatter: await mergedFrontmatter(vault, sourcePath, { type: 'source', title: sourceTitle, sources: [rawPath], created: now, updated: now }),
       body: `# ${sourceTitle}\n\n${analysis.source_summary}`,
     });
     await updateIndex(vault, { path: sourcePath, title: sourceTitle, type: 'source', summary: analysis.source_summary });
@@ -130,7 +145,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
       : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     await writePage(vault, {
       path: p.path,
-      frontmatter: { type, title, sources: [rawPath], created: now, updated: now },
+      frontmatter: await mergedFrontmatter(vault, p.path, { type, title, sources: [rawPath], created: now, updated: now }),
       body: p.body,
     });
     const summary = summaryForPage(p.path, analysis, rawPath);
