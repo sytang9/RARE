@@ -387,7 +387,7 @@ export function PasteView() {
       </div>
 
       {/* Right: knowledge orbit playground (hidden on narrow viewports) */}
-      <div className="hidden lg:contents">
+      <div className="hidden lg:block w-[300px] shrink-0">
         <PlaygroundCanvas
           pages={pages}
           newPageIds={newPageIds}

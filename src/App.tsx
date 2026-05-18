@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Inbox, MessageSquare, Settings, GitBranch, BookOpen, FolderOpen, ChevronDown, Plus, Trash2, Check } from 'lucide-react';
+import { Inbox, MessageSquare, Settings, GitBranch, BookOpen, FolderOpen, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, Check } from 'lucide-react';
 import { ChatView } from './views/ChatView';
 import { PasteView } from './views/PasteView';
 import { SettingsView } from './views/SettingsView';
@@ -32,6 +32,7 @@ export default function App() {
   const [showNewVault, setShowNewVault]     = useState(false);
   const [deletingId, setDeletingId]         = useState<number | null>(null);
   const [confirmVaultId, setConfirmVaultId] = useState<number | null>(null);
+  const [navOpen, setNavOpen]               = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +49,11 @@ export default function App() {
     if (vaultDropdown) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [vaultDropdown]);
+
+  // Close vault dropdown when sidebar collapses
+  useEffect(() => {
+    if (!navOpen) setVaultDropdown(false);
+  }, [navOpen]);
 
   const activeVault = vaults.find(v => v.id === activeVaultId);
 
@@ -76,10 +82,10 @@ export default function App() {
 
   return (
     <div className="h-screen flex bg-base text-ink overflow-hidden">
-      <aside className="w-[220px] shrink-0 bg-panel border-r border-rim flex flex-col">
+      <aside className={`${navOpen ? 'w-[220px]' : 'w-12'} shrink-0 bg-panel border-r border-rim flex flex-col transition-all duration-200`}>
 
         {/* Logo */}
-        <div className="h-14 flex items-center px-5 border-b border-rim gap-3">
+        <div className="h-14 flex items-center px-3 border-b border-rim gap-3 shrink-0">
           <span
             className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold text-black shrink-0"
             style={{
@@ -89,90 +95,100 @@ export default function App() {
           >
             R
           </span>
-          <span className="font-semibold text-[15px] tracking-tight text-ink">RARE</span>
+          {navOpen && <span className="font-semibold text-[15px] tracking-tight text-ink">RARE</span>}
         </div>
 
-        {/* Vault switcher */}
-        <div ref={dropdownRef} className="relative px-3 pt-3 pb-1">
-          <button
-            onClick={() => setVaultDropdown(v => !v)}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded border border-rim bg-base hover:border-ink-dim transition-colors text-left"
-          >
-            <span className="flex-1 truncate text-xs font-medium text-ink">
-              {activeVault?.name ?? 'Loading…'}
-            </span>
-            <ChevronDown
-              size={12}
-              className={`text-ink-dim shrink-0 transition-transform ${vaultDropdown ? 'rotate-180' : ''}`}
-            />
-          </button>
+        {/* Vault switcher — hidden when collapsed */}
+        {navOpen && (
+          <div ref={dropdownRef} className="relative px-3 pt-3 pb-1">
+            <button
+              onClick={() => setVaultDropdown(v => !v)}
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded border border-rim bg-base hover:border-ink-dim transition-colors text-left"
+            >
+              <span className="flex-1 truncate text-xs font-medium text-ink">
+                {activeVault?.name ?? 'Loading…'}
+              </span>
+              <ChevronDown
+                size={12}
+                className={`text-ink-dim shrink-0 transition-transform ${vaultDropdown ? 'rotate-180' : ''}`}
+              />
+            </button>
 
-          {vaultDropdown && (
-            <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-40 bg-panel border border-rim rounded-lg shadow-xl overflow-hidden">
-              <div className="py-1 max-h-52 overflow-y-auto">
-                {vaults.map(v => (
+            {vaultDropdown && (
+              <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-40 bg-panel border border-rim rounded-lg shadow-xl overflow-hidden">
+                <div className="py-1 max-h-52 overflow-y-auto">
+                  {vaults.map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => handleSwitch(v.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-card transition-colors group"
+                    >
+                      <Check
+                        size={11}
+                        className={v.id === activeVaultId ? 'text-amber shrink-0' : 'text-transparent shrink-0'}
+                      />
+                      <span className="flex-1 truncate text-xs text-ink">{v.name}</span>
+                      {vaults.length > 1 && (
+                        <button
+                          onClick={(e) => handleDelete(v.id, e)}
+                          disabled={deletingId === v.id}
+                          className="opacity-0 group-hover:opacity-100 text-ink-dim hover:text-red-400 transition-all disabled:opacity-40"
+                          aria-label="Delete vault"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-rim">
                   <button
-                    key={v.id}
-                    onClick={() => handleSwitch(v.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-card transition-colors group"
+                    onClick={() => { setVaultDropdown(false); setShowNewVault(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-ink-dim hover:text-ink hover:bg-card transition-colors"
                   >
-                    <Check
-                      size={11}
-                      className={v.id === activeVaultId ? 'text-amber shrink-0' : 'text-transparent shrink-0'}
-                    />
-                    <span className="flex-1 truncate text-xs text-ink">{v.name}</span>
-                    {vaults.length > 1 && (
-                      <button
-                        onClick={(e) => handleDelete(v.id, e)}
-                        disabled={deletingId === v.id}
-                        className="opacity-0 group-hover:opacity-100 text-ink-dim hover:text-red-400 transition-all disabled:opacity-40"
-                        aria-label="Delete vault"
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    )}
+                    <Plus size={12} />
+                    New vault
                   </button>
-                ))}
+                </div>
               </div>
-              <div className="border-t border-rim">
-                <button
-                  onClick={() => { setVaultDropdown(false); setShowNewVault(true); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-ink-dim hover:text-ink hover:bg-card transition-colors"
-                >
-                  <Plus size={12} />
-                  New vault
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Nav */}
-        <nav className="flex-1 py-3 px-3 space-y-0.5">
+        <nav className="flex-1 py-3 px-1.5 space-y-0.5 overflow-hidden">
           {NAV.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
             return (
               <button
                 key={id}
                 onClick={() => setTab(id)}
+                title={!navOpen ? label : undefined}
                 className={[
-                  'w-full flex items-center gap-3 py-2.5 rounded text-sm font-medium transition-all duration-100',
-                  'border-l-[3px]',
+                  'w-full flex items-center rounded text-sm font-medium transition-all duration-100',
+                  navOpen ? 'gap-3 py-2.5 border-l-[3px] pl-[9px] pr-3' : 'gap-0 py-2.5 justify-center border-l-[3px] pl-[5px]',
                   active
-                    ? 'border-amber text-amber pl-[9px] pr-3'
-                    : 'border-transparent text-ink-dim hover:text-ink hover:bg-card pl-[9px] pr-3',
+                    ? 'border-amber text-amber'
+                    : 'border-transparent text-ink-dim hover:text-ink hover:bg-card',
                 ].join(' ')}
                 style={active ? { background: 'rgba(240, 160, 48, 0.08)' } : undefined}
               >
-                <Icon size={15} strokeWidth={1.8} />
-                {label}
+                <Icon size={15} strokeWidth={1.8} className="shrink-0" />
+                {navOpen && label}
               </button>
             );
           })}
         </nav>
 
-        <div className="px-4 py-3 border-t border-rim">
-          <p className="text-[11px] text-ink-dim font-mono tracking-wide">v1</p>
+        <div className="px-3 py-3 border-t border-rim flex items-center justify-between">
+          {navOpen && <p className="text-[11px] text-ink-dim font-mono tracking-wide">v1</p>}
+          <button
+            onClick={() => setNavOpen(v => !v)}
+            className={`${navOpen ? '' : 'mx-auto'} w-6 h-6 flex items-center justify-center rounded text-ink-dim hover:text-ink hover:bg-card transition-colors`}
+            title={navOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {navOpen ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+          </button>
         </div>
       </aside>
 
