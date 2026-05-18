@@ -252,8 +252,11 @@ app.post('/api/ingest/upload', express.raw({ type: 'application/pdf', limit: '50
       }
     } else {
       // Text mode: extract text, store as .md, SHA of text
-      const pdfParse = ((await import('pdf-parse')) as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
-      const { text } = await pdfParse(buffer);
+      const { PDFParse } = await import('pdf-parse');
+      const parser = new PDFParse({ data: buffer });
+      const parseResult = await parser.getText();
+      await parser.destroy();
+      const text = parseResult.text;
       if (!text.trim()) return res.status(422).json({ error: 'No text extracted from PDF' });
       const rawPath = `raw/sources/${slug}.md`;
       await writeFileText(join(VAULT_PATH, rawPath), text);
