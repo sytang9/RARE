@@ -2,12 +2,14 @@ export async function pdfToMarkdown(absPath: string): Promise<string> {
   if (!absPath || !absPath.endsWith('.pdf')) {
     throw new Error(`pdfToMarkdown: expected an absolute .pdf path, got: ${absPath}`);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfParse = ((await import('pdf-parse')) as any).default;
+  // pdf-parse v2 exports a named class PDFParse, not a default function
+  const { PDFParse } = await import('pdf-parse');
   const { readFile } = await import('node:fs/promises');
   const buffer = await readFile(absPath);
-  const data = await pdfParse(buffer);
-  return data.text as string;
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result.text;
 }
 
 export interface PdfDocumentBlock {
