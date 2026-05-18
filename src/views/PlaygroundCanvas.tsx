@@ -93,15 +93,82 @@ export function createBurstBody(
   };
 }
 
+export function stepPhysics(
+  bodies: WordBody[],
+  cursor: { x: number; y: number } | null,
+  canvasW: number,
+  canvasH: number,
+): void {
+  const PAD = 20;
+  const DAMP = 0.97;
+  const MAX_SPEED = 3.5;
+
+  for (const b of bodies) {
+    if (cursor) {
+      const dx = cursor.x - b.x;
+      const dy = cursor.y - b.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const strength = Math.min(800 / (dist * dist), 0.4);
+      b.vx += (dx / dist) * strength;
+      b.vy += (dy / dist) * strength;
+    } else {
+      b.vx += (Math.random() - 0.5) * 0.02;
+      b.vy += (Math.random() - 0.5) * 0.02;
+    }
+
+    b.vx *= DAMP;
+    b.vy *= DAMP;
+    const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    if (speed > MAX_SPEED) { b.vx = (b.vx / speed) * MAX_SPEED; b.vy = (b.vy / speed) * MAX_SPEED; }
+
+    b.x += b.vx;
+    b.y += b.vy;
+
+    if (b.x < PAD)                  { b.x = PAD;                b.vx = Math.abs(b.vx) * 0.6; }
+    if (b.x + b.w > canvasW - PAD)  { b.x = canvasW - PAD - b.w; b.vx = -Math.abs(b.vx) * 0.6; }
+    if (b.y < PAD)                  { b.y = PAD;                b.vy = Math.abs(b.vy) * 0.6; }
+    if (b.y + b.h > canvasH - PAD)  { b.y = canvasH - PAD - b.h; b.vy = -Math.abs(b.vy) * 0.6; }
+  }
+
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      const a = bodies[i], bw = bodies[j];
+      const ox = Math.min(a.x + a.w, bw.x + bw.w) - Math.max(a.x, bw.x);
+      const oy = Math.min(a.y + a.h, bw.y + bw.h) - Math.max(a.y, bw.y);
+      if (ox > 0 && oy > 0) {
+        if (ox < oy) { a.x -= ox / 2; bw.x += ox / 2; }
+        else         { a.y -= oy / 2; bw.y += oy / 2; }
+      }
+    }
+  }
+}
+
+function drawBodies(
+  ctx: CanvasRenderingContext2D,
+  bodies: WordBody[],
+  cursor: { x: number; y: number } | null,
+): void {
+  ctx.font = FONT;
+  for (const b of bodies) {
+    const dx = cursor ? cursor.x - b.x : 999;
+    const dy = cursor ? cursor.y - b.y : 999;
+    const nearCursor = Math.sqrt(dx * dx + dy * dy) < 80;
+    ctx.globalAlpha = nearCursor ? 1.0 : 0.75;
+    ctx.fillStyle = TYPE_COLOR[b.type];
+    ctx.fillText(b.text, b.x, b.y + 12);
+  }
+  ctx.globalAlpha = 1.0;
+}
+
 interface Props {
   pages: PageMeta[];
   newPageIds: Set<string>;
   onBurstDone: () => void;
 }
 
-// newPageIds and onBurstDone wired in Task 5
+// onBurstDone wired in Task 5
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function PlaygroundCanvas({ pages, newPageIds: _newPageIds, onBurstDone: _onBurstDone }: Props) {
+export function PlaygroundCanvas({ pages, newPageIds, onBurstDone: _onBurstDone }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -116,6 +183,41 @@ export function PlaygroundCanvas({ pages, newPageIds: _newPageIds, onBurstDone: 
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const bodiesRef = useRef<WordBody[]>([]);
+  const cursorRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Sync bodies when pages or canvas size change
+  useEffect(() => {
+    if (size.w === 0) return;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const existingIds = new Set(bodiesRef.current.map(b => b.id));
+    const pageIds     = new Set(pages.map(p => p.id));
+    bodiesRef.current = bodiesRef.current.filter(b => pageIds.has(b.id));
+    for (const page of pages.slice(0, MAX_WORDS)) {
+      if (!existingIds.has(page.id) && !newPageIds.has(page.id)) {
+        bodiesRef.current.push(createBody(page, ctx, size.w, size.h));
+      }
+    }
+  }, [pages, size]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // RAF loop
+  useEffect(() => {
+    if (size.w === 0 || pages.length === 0) return;
+    let rafId: number;
+    function tick() {
+      const canvas = canvasRef.current;
+      const ctx    = canvas?.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, size.w, size.h);
+      stepPhysics(bodiesRef.current, cursorRef.current, size.w, size.h);
+      drawBodies(ctx, bodiesRef.current, cursorRef.current);
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [size.w, size.h, pages.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isEmpty = pages.length === 0;
 
@@ -141,6 +243,11 @@ export function PlaygroundCanvas({ pages, newPageIds: _newPageIds, onBurstDone: 
             width={size.w}
             height={size.h}
             style={{ width: size.w, height: size.h, display: 'block' }}
+            onMouseMove={e => {
+              const rect = canvasRef.current!.getBoundingClientRect();
+              cursorRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            }}
+            onMouseLeave={() => { cursorRef.current = null; }}
           />
         )
       )}
