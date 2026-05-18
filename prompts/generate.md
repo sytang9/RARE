@@ -9,6 +9,7 @@ Rules:
 - For `entity` pages, include sections: Description, Notable Work, Connections.
 - For `source` pages, follow the structure and format described in SCHEMA.MD for this vault's source type.
 - When a contradiction is flagged, add a "Tensions" section that cites both the new and existing source.
+- For `update` pages where EXISTING PAGES provides the current content: merge intelligently — never discard existing information. For `entity` pages, update "Active Work" to reflect current state and append a new bullet to "Meeting Updates". For `concept` pages, expand the definition with new nuance and append to "Sources".
 
 Return the result via the `write_pages` tool, an array of `{ path, body }` objects matching `recommended_pages` paths.
 
@@ -23,3 +24,5 @@ ANALYSIS:
 
 SOURCE EXCERPT:
 {{source}}
+
+{{existing_pages}}

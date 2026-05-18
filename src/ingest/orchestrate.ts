@@ -101,11 +101,24 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
 
   if (isVisionPdf) sourceExcerpt = analysis.source_summary;
 
+  // Read existing bodies for pages the analyzer flagged as updates
+  const existingPages: Record<string, string> = {};
+  for (const rec of analysis.recommended_pages ?? []) {
+    if (rec.action !== 'update') continue;
+    try {
+      const existing = await readPage(vault, normalizePath(rec.path));
+      existingPages[rec.path] = existing.body;
+    } catch {
+      // page doesn't exist yet — generate will treat it as a create
+    }
+  }
+
   const { pages, usd: generateUsd } = await generate({
     analysis,
     purpose,
     schema,
     sourceExcerpt,
+    existingPages,
   });
 
   const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;

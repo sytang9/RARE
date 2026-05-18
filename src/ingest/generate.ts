@@ -7,6 +7,7 @@ export interface GenerateInput {
   purpose: string;
   schema: string;
   sourceExcerpt: string;
+  existingPages?: Record<string, string>; // path → current body, for update actions
 }
 
 export interface GeneratedPage {
@@ -47,11 +48,19 @@ async function generateBatch(
     source_summary: input.analysis.source_summary,
     recommended_pages: batchPages,
   };
+  const existingParts = batchPages
+    .filter(p => p.action === 'update' && input.existingPages?.[p.path])
+    .map(p => `### ${p.path}\n\n${input.existingPages![p.path]}`);
+  const existingSection = existingParts.length > 0
+    ? `EXISTING PAGES (current content — merge intelligently, do not discard):\n\n${existingParts.join('\n\n---\n\n')}`
+    : '';
+
   const prompt = generateTemplate
     .replace('{{purpose}}', input.purpose)
     .replace('{{schema}}',  input.schema)
     .replace('{{analysis}}', JSON.stringify(slimAnalysis, null, 2))
-    .replace('{{source}}',  input.sourceExcerpt.slice(0, 6000));
+    .replace('{{source}}',  input.sourceExcerpt.slice(0, 6000))
+    .replace('{{existing_pages}}', existingSection);
 
   const result = await chat({
     model: 'haiku',
