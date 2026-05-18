@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, BookOpen, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../state/chatStore';
@@ -97,6 +97,7 @@ export function ChatView() {
   const [model, setModel]           = useState<ModelChoice>('sonnet');
   const [thinking, setThinking]     = useState(false);
   const [confirmChatId, setConfirmChatId] = useState<number | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -155,38 +156,49 @@ export function ChatView() {
   return (
     <div className="h-full flex overflow-hidden">
       {/* ── Left panel: chat history ──────────────────────────── */}
-      <div className="w-[220px] shrink-0 flex flex-col border-r border-rim bg-panel overflow-hidden">
-        {/* New Chat button */}
-        <div className="px-3 py-3 border-b border-rim">
+      <div className={`${sidebarOpen ? 'w-[220px]' : 'w-8'} shrink-0 flex flex-col border-r border-rim bg-panel overflow-hidden transition-all duration-200`}>
+        <div className={`flex items-center gap-2 px-3 py-3 border-b border-rim shrink-0`}>
+          {sidebarOpen && (
+            <button
+              onClick={handleNewChat}
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-rim text-xs text-ink-dim hover:text-ink hover:border-amber/40 hover:bg-card transition-colors"
+            >
+              <Plus size={12} className="shrink-0" />
+              <span>New Chat</span>
+            </button>
+          )}
           <button
-            onClick={handleNewChat}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-rim text-xs text-ink-dim hover:text-ink hover:border-amber/40 hover:bg-card transition-colors"
+            onClick={() => setSidebarOpen(v => !v)}
+            className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-ink-dim hover:text-ink hover:bg-card transition-colors ml-auto"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
-            <Plus size={12} className="shrink-0" />
-            <span>New Chat</span>
+            {sidebarOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
           </button>
         </div>
 
-        {/* History list */}
-        <div className="flex-1 overflow-y-auto py-1">
-          {chatList.length === 0 && (
-            <p className="text-[10px] font-mono text-ink-dim px-4 py-3">No chats yet.</p>
-          )}
-          {chatList.map(chat => (
-            <HistoryItem
-              key={chat.id}
-              chat={chat}
-              active={chat.id === chatId}
-              onSelect={() => { if (chat.id !== chatId) loadChat(chat.id); }}
-              onDelete={(e) => handleDeleteChat(chat.id, e)}
-            />
-          ))}
-        </div>
+        {sidebarOpen && (
+          <>
+            <div className="flex-1 overflow-y-auto py-1">
+              {chatList.length === 0 && (
+                <p className="text-[10px] font-mono text-ink-dim px-4 py-3">No chats yet.</p>
+              )}
+              {chatList.map(chat => (
+                <HistoryItem
+                  key={chat.id}
+                  chat={chat}
+                  active={chat.id === chatId}
+                  onSelect={() => { if (chat.id !== chatId) loadChat(chat.id); }}
+                  onDelete={(e) => handleDeleteChat(chat.id, e)}
+                />
+              ))}
+            </div>
 
-        {chatList.length > 0 && (
-          <div className="px-3 py-2 border-t border-rim">
-            <p className="text-[10px] font-mono text-ink-dim">{chatList.length} chat{chatList.length !== 1 ? 's' : ''}</p>
-          </div>
+            {chatList.length > 0 && (
+              <div className="px-3 py-2 border-t border-rim">
+                <p className="text-[10px] font-mono text-ink-dim">{chatList.length} chat{chatList.length !== 1 ? 's' : ''}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
