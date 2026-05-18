@@ -716,8 +716,16 @@ app.delete('/api/source', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'invalid path' }); return;
   }
   try {
-    const { unlink } = await import('node:fs/promises');
+    const { unlink, readFile } = await import('node:fs/promises');
     const { join: pjoin } = await import('node:path');
+
+    // Clear SHA256 cache before deleting so re-ingest works
+    try {
+      const content = await readFile(pjoin(active.root, path), 'utf8');
+      const hash = sha256(content);
+      active.db.prepare('DELETE FROM ingest_queue WHERE sha256 = ?').run(hash);
+      active.db.prepare('DELETE FROM analyze_cache WHERE sha256 = ?').run(hash);
+    } catch { /* file may not exist yet, ignore */ }
 
     await unlink(pjoin(active.root, path));
 
