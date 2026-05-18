@@ -166,9 +166,14 @@ export function WikiView() {
     { concept: [], entity: [], source: [] },
   );
 
-  // Convert [[wikilinks]] to markdown links prefixed with "wiki:" so we can intercept them
+  // Convert [[wikilinks]] to markdown links. Handles [[Target]] and [[target|Display]] forms.
   function processBody(body: string): string {
-    return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => `[${target}](wiki:${encodeURIComponent(target)})`);
+    return body.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+      const pipe = inner.indexOf('|');
+      const target  = pipe !== -1 ? inner.slice(0, pipe).trim() : inner.trim();
+      const display = pipe !== -1 ? inner.slice(pipe + 1).trim() : inner.trim();
+      return `[${display}](wiki:${encodeURIComponent(target)})`;
+    });
   }
 
   const empty = !loading && pages.length === 0;
