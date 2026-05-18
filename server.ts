@@ -37,6 +37,7 @@ const RARE_DIR = join(VAULT_PATH, '.rare');
 mkdirSync(RARE_DIR, { recursive: true });
 
 const rawDb = new BetterSqlite3(join(RARE_DIR, 'queue.sqlite'));
+rawDb.pragma('foreign_keys = ON');
 rawDb.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
@@ -59,6 +60,20 @@ rawDb.exec(`
     analyze_json TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL DEFAULT 'New Chat',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages (chat_id);
 `);
 
 // Adapt better-sqlite3 (synchronous) to the QueueBackend interface
@@ -287,11 +302,12 @@ app.get('/api/queue', async (_req: Request, res: Response) => {
 
 app.post('/api/chat', async (req: Request, res: Response) => {
   try {
-    const { query, history, model: rawModel, thinking: rawThinking } = req.body as {
+    const { query, history, model: rawModel, thinking: rawThinking, chatId: rawChatId } = req.body as {
       query?: string;
       history?: unknown[];
       model?: string;
       thinking?: boolean;
+      chatId?: number;
     };
     if (!query) return res.status(400).json({ error: 'query required' });
     const VALID_MODELS = ['haiku', 'sonnet', 'opus'] as const;
@@ -299,9 +315,66 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       ? (rawModel as typeof VALID_MODELS[number])
       : 'sonnet';
     const thinking = rawThinking === true;
+
+    // Resolve or create chat session
+    let chatId: number;
+    if (rawChatId) {
+      const existing = rawDb.prepare('SELECT id FROM chats WHERE id = ?').get(rawChatId);
+      if (existing) {
+        chatId = rawChatId;
+      } else {
+        const r = rawDb.prepare('INSERT INTO chats (title) VALUES (?)').run(query.slice(0, 60));
+        chatId = r.lastInsertRowid as number;
+      }
+    } else {
+      const r = rawDb.prepare('INSERT INTO chats (title) VALUES (?)').run(query.slice(0, 60));
+      chatId = r.lastInsertRowid as number;
+    }
+
+    rawDb.prepare('INSERT INTO chat_messages (chat_id, role, content) VALUES (?, ?, ?)').run(chatId, 'user', query);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await answer(query, (history ?? []) as any, vault, { model, thinking });
-    res.json({ text: result.text });
+
+    rawDb.prepare('INSERT INTO chat_messages (chat_id, role, content) VALUES (?, ?, ?)').run(chatId, 'assistant', result.text);
+    rawDb.prepare("UPDATE chats SET updated_at = datetime('now') WHERE id = ?").run(chatId);
+
+    res.json({ text: result.text, chatId });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/chats', (_req: Request, res: Response) => {
+  try {
+    const chats = rawDb.prepare(
+      'SELECT id, title, created_at, updated_at FROM chats ORDER BY updated_at DESC'
+    ).all();
+    res.json(chats);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/chats/:id/messages', (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const chat = rawDb.prepare('SELECT id FROM chats WHERE id = ?').get(id);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+    const messages = rawDb.prepare(
+      'SELECT role, content FROM chat_messages WHERE chat_id = ? ORDER BY id ASC'
+    ).all(id);
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.delete('/api/chats/:id', (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    rawDb.prepare('DELETE FROM chats WHERE id = ?').run(id);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
