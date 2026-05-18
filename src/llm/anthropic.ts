@@ -21,6 +21,9 @@ export interface ChatOptions {
   messages: Anthropic.MessageParam[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tools?: any[];
+  // When tools are provided, defaults to { type: 'any' } so the model is required to call a tool.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toolChoice?: any;
   maxTokens?: number;
   thinking?: { type: 'enabled'; budget_tokens: number };
 }
@@ -43,6 +46,9 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
     tools: opts.tools,
     max_tokens: opts.maxTokens ?? 4096,
   };
+  if (opts.tools?.length) {
+    params.tool_choice = opts.toolChoice ?? { type: 'any' };
+  }
   if (opts.thinking) {
     params.thinking = opts.thinking;
     // thinking requires max_tokens > budget_tokens
