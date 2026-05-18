@@ -96,7 +96,18 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;
   const now = new Date().toISOString();
 
-  const hasSourcePage = pages.some(p => normalizePath(p.path).startsWith('sources/'));
+  // Deduplicate: keep only the first sources/ page the LLM recommended
+  let sourcePageSeen = false;
+  const dedupedPages = pages.filter(raw => {
+    const normalized = normalizePath(raw.path);
+    if (normalized.startsWith('sources/')) {
+      if (sourcePageSeen) return false;
+      sourcePageSeen = true;
+    }
+    return true;
+  });
+
+  const hasSourcePage = dedupedPages.some(p => normalizePath(p.path).startsWith('sources/'));
   if (!hasSourcePage) {
     const sourceSlug = toSlug(rawPath.replace('raw/sources/', '').replace(/\.[^.]+$/, ''));
     const sourcePath = `sources/${sourceSlug}`;
@@ -109,7 +120,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
     await updateIndex(vault, { path: sourcePath, title: sourceTitle, type: 'source', summary: analysis.source_summary });
   }
 
-  for (const raw of pages) {
+  for (const raw of dedupedPages) {
     const p = { ...raw, path: normalizePath(raw.path) };
     const type = typeFromPath(p.path);
     const slug = p.path.split('/')[1] ?? p.path;
