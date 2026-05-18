@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { FolderOpen, DollarSign, Clock, Play, Save } from 'lucide-react';
+import { FolderOpen, DollarSign, Clock, Play, Save, Link } from 'lucide-react';
 
 interface SettingsData {
   vault_path: string;
   cost_ceiling_usd: number;
   lint_interval_hours: number;
   monthly_cost_usd: number;
+  confluence_base_url: string;
+  confluence_email: string;
+  confluence_api_token: string;
 }
 
 interface CostBreakdown {
@@ -37,13 +40,16 @@ function fmt(n: number): string {
 }
 
 export function SettingsView() {
-  const [settings, setSettings]       = useState<SettingsData | null>(null);
-  const [costCeiling, setCostCeiling] = useState('');
-  const [lintHours, setLintHours]     = useState('');
-  const [status, setStatus]           = useState('');
-  const [linting, setLinting]         = useState(false);
-  const [period, setPeriod]           = useState<Period>('month');
-  const [costs, setCosts]             = useState<CostBreakdown | null>(null);
+  const [settings, setSettings]           = useState<SettingsData | null>(null);
+  const [costCeiling, setCostCeiling]     = useState('');
+  const [lintHours, setLintHours]         = useState('');
+  const [confBaseUrl, setConfBaseUrl]     = useState('');
+  const [confEmail, setConfEmail]         = useState('');
+  const [confToken, setConfToken]         = useState('');
+  const [status, setStatus]               = useState('');
+  const [linting, setLinting]             = useState(false);
+  const [period, setPeriod]               = useState<Period>('month');
+  const [costs, setCosts]                 = useState<CostBreakdown | null>(null);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -52,6 +58,9 @@ export function SettingsView() {
         setSettings(s);
         setCostCeiling(String(s.cost_ceiling_usd));
         setLintHours(String(s.lint_interval_hours));
+        setConfBaseUrl(s.confluence_base_url ?? '');
+        setConfEmail(s.confluence_email ?? '');
+        setConfToken(s.confluence_api_token ?? '');
       })
       .catch(() => setStatus('Failed to load settings'));
   }, []);
@@ -70,8 +79,11 @@ export function SettingsView() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cost_ceiling_usd:    Number(costCeiling),
-          lint_interval_hours: Number(lintHours),
+          cost_ceiling_usd:      Number(costCeiling),
+          lint_interval_hours:   Number(lintHours),
+          confluence_base_url:   confBaseUrl,
+          confluence_email:      confEmail,
+          confluence_api_token:  confToken,
         }),
       });
       if (!r.ok) throw new Error('Save failed');
@@ -266,6 +278,44 @@ export function SettingsView() {
             <Play size={13} />
             {linting ? 'Running…' : 'Run lint now'}
           </button>
+        </Section>
+
+        <Section icon={Link} title="Confluence">
+          <p className="text-xs text-ink-dim mb-4">
+            Paste a Confluence page URL in Ingest and RARE will fetch it automatically using these credentials.
+          </p>
+          <div className="space-y-3">
+            <label className="block">
+              <p className="text-xs text-ink-dim mb-1.5">Base URL</p>
+              <input
+                type="text"
+                value={confBaseUrl}
+                onChange={e => setConfBaseUrl(e.target.value)}
+                placeholder="https://yourorg.atlassian.net"
+                className="w-full bg-base border border-rim rounded px-3 py-2 text-sm text-ink font-mono placeholder:text-ink-dim/40 input-amber-focus"
+              />
+            </label>
+            <label className="block">
+              <p className="text-xs text-ink-dim mb-1.5">Email</p>
+              <input
+                type="email"
+                value={confEmail}
+                onChange={e => setConfEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="w-full bg-base border border-rim rounded px-3 py-2 text-sm text-ink font-mono placeholder:text-ink-dim/40 input-amber-focus"
+              />
+            </label>
+            <label className="block">
+              <p className="text-xs text-ink-dim mb-1.5">API token <span className="text-ink-dim/50 font-sans">(stored locally, never sent anywhere else)</span></p>
+              <input
+                type="password"
+                value={confToken}
+                onChange={e => setConfToken(e.target.value)}
+                placeholder="Your Atlassian API token"
+                className="w-full bg-base border border-rim rounded px-3 py-2 text-sm text-ink font-mono placeholder:text-ink-dim/40 input-amber-focus"
+              />
+            </label>
+          </div>
         </Section>
 
         <div className="flex items-center gap-3 pt-2">
