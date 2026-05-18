@@ -86,3 +86,36 @@ describe('stepPhysics', () => {
     expect(b.y).toBeGreaterThan(before.y);
   });
 });
+
+// detectNewPageIds: given previous ID set and new page array, return only IDs not seen before
+function detectNewPageIds(prevIds: Set<string>, pages: Array<{ id: string }>): Set<string> {
+  return new Set(pages.filter(p => !prevIds.has(p.id)).map(p => p.id));
+}
+
+describe('detectNewPageIds', () => {
+  it('returns empty set when nothing changed', () => {
+    const prev = new Set(['a', 'b']);
+    const pages = [{ id: 'a' }, { id: 'b' }];
+    expect(detectNewPageIds(prev, pages).size).toBe(0);
+  });
+
+  it('detects a single new page', () => {
+    const prev = new Set(['a']);
+    const pages = [{ id: 'a' }, { id: 'b' }];
+    const result = detectNewPageIds(prev, pages);
+    expect(result.has('b')).toBe(true);
+    expect(result.size).toBe(1);
+  });
+
+  it('detects multiple new pages', () => {
+    const prev = new Set<string>();
+    const pages = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    const result = detectNewPageIds(prev, pages);
+    expect(result.size).toBe(3);
+  });
+
+  it('handles empty page array', () => {
+    const prev = new Set(['a']);
+    expect(detectNewPageIds(prev, []).size).toBe(0);
+  });
+});

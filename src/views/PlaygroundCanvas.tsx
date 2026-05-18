@@ -166,9 +166,7 @@ interface Props {
   onBurstDone: () => void;
 }
 
-// onBurstDone wired in Task 5
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function PlaygroundCanvas({ pages, newPageIds, onBurstDone: _onBurstDone }: Props) {
+export function PlaygroundCanvas({ pages, newPageIds, onBurstDone }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -201,6 +199,20 @@ export function PlaygroundCanvas({ pages, newPageIds, onBurstDone: _onBurstDone 
       }
     }
   }, [pages, size]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Burst: spawn new words from canvas edge when newPageIds arrives
+  useEffect(() => {
+    if (newPageIds.size === 0 || size.w === 0) return;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    for (const id of newPageIds) {
+      const page = pages.find(p => p.id === id);
+      if (!page) continue;
+      bodiesRef.current = bodiesRef.current.filter(b => b.id !== id);
+      bodiesRef.current.push(createBurstBody(page, ctx, size.w, size.h));
+    }
+    onBurstDone();
+  }, [newPageIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // RAF loop
   useEffect(() => {
