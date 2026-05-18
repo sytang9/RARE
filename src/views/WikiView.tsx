@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BookOpen, Search, FileText, Users, Lightbulb, ChevronRight, X, ExternalLink } from 'lucide-react';
+import { BookOpen, Search, FileText, Users, Lightbulb, ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react';
 
 type PageType = 'concept' | 'entity' | 'source';
 
@@ -100,6 +100,7 @@ export function WikiView() {
   const [error, setError]             = useState('');
   const [sourcePanel, setSourcePanel] = useState<SourcePanel | null>(null);
   const [sourcePanelLoading, setSourcePanelLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // slug → page id map (e.g. "attention" → "concepts/attention")
   const slugMap = useRef(new Map<string, string>());
@@ -175,58 +176,71 @@ export function WikiView() {
   return (
     <div className="h-full flex overflow-hidden">
       {/* ── Left panel: page list ──────────────────────────────── */}
-      <div className="w-[260px] shrink-0 flex flex-col border-r border-rim bg-panel overflow-hidden">
-        <div className="px-3 py-3 border-b border-rim">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search pages…"
-              className="w-full bg-card border border-rim rounded px-3 py-1.5 pl-7 text-xs text-ink placeholder:text-ink-dim input-amber-focus"
-            />
-          </div>
+      <div className={`${sidebarOpen ? 'w-[260px]' : 'w-8'} shrink-0 flex flex-col border-r border-rim bg-panel overflow-hidden transition-all duration-200`}>
+        <div className={`flex items-center gap-2 px-3 py-3 border-b border-rim shrink-0`}>
+          {sidebarOpen && (
+            <div className="relative flex-1">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search pages…"
+                className="w-full bg-card border border-rim rounded px-3 py-1.5 pl-7 text-xs text-ink placeholder:text-ink-dim input-amber-focus"
+              />
+            </div>
+          )}
+          <button
+            onClick={() => setSidebarOpen(v => !v)}
+            className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-ink-dim hover:text-ink hover:bg-card transition-colors ml-auto"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {sidebarOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-2">
-          {loading && <p className="text-xs text-ink-dim px-4 py-3">Loading…</p>}
-          {empty   && <p className="text-xs text-ink-dim px-4 py-3">No pages yet. Ingest some sources first.</p>}
-          {(['concept', 'entity', 'source'] as PageType[]).map(type => {
-            const group = grouped[type];
-            if (group.length === 0) return null;
-            const Icon = TYPE_ICON[type];
-            return (
-              <div key={type} className="mb-3">
-                <div className="flex items-center gap-2 px-3 py-1.5">
-                  <Icon size={11} style={{ color: TYPE_COLOR[type] }} />
-                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: TYPE_COLOR[type] }}>
-                    {TYPE_LABEL[type]} ({group.length})
-                  </span>
-                </div>
-                {group.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => loadPage(p.id)}
-                    className={[
-                      'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
-                      selected?.path === p.id
-                        ? 'bg-[rgba(240,160,48,0.08)] border-l-2 border-amber'
-                        : 'hover:bg-card border-l-2 border-transparent',
-                    ].join(' ')}
-                  >
-                    <span className="text-xs text-ink truncate flex-1">{p.title}</span>
-                    <ChevronRight size={11} className="text-ink-dim shrink-0 opacity-50" />
-                  </button>
-                ))}
+        {sidebarOpen && (
+          <>
+            <div className="flex-1 overflow-y-auto py-2">
+              {loading && <p className="text-xs text-ink-dim px-4 py-3">Loading…</p>}
+              {empty   && <p className="text-xs text-ink-dim px-4 py-3">No pages yet. Ingest some sources first.</p>}
+              {(['concept', 'entity', 'source'] as PageType[]).map(type => {
+                const group = grouped[type];
+                if (group.length === 0) return null;
+                const Icon = TYPE_ICON[type];
+                return (
+                  <div key={type} className="mb-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5">
+                      <Icon size={11} style={{ color: TYPE_COLOR[type] }} />
+                      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: TYPE_COLOR[type] }}>
+                        {TYPE_LABEL[type]} ({group.length})
+                      </span>
+                    </div>
+                    {group.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => loadPage(p.id)}
+                        className={[
+                          'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
+                          selected?.path === p.id
+                            ? 'bg-[rgba(240,160,48,0.08)] border-l-2 border-amber'
+                            : 'hover:bg-card border-l-2 border-transparent',
+                        ].join(' ')}
+                      >
+                        <span className="text-xs text-ink truncate flex-1">{p.title}</span>
+                        <ChevronRight size={11} className="text-ink-dim shrink-0 opacity-50" />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            {!loading && pages.length > 0 && (
+              <div className="px-3 py-2 border-t border-rim">
+                <p className="text-[10px] font-mono text-ink-dim">{pages.length} pages</p>
               </div>
-            );
-          })}
-        </div>
-
-        {!loading && pages.length > 0 && (
-          <div className="px-3 py-2 border-t border-rim">
-            <p className="text-[10px] font-mono text-ink-dim">{pages.length} pages</p>
-          </div>
+            )}
+          </>
         )}
       </div>
 
