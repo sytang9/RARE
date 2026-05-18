@@ -719,13 +719,23 @@ app.delete('/api/source', async (req: Request, res: Response) => {
     const { unlink, readFile } = await import('node:fs/promises');
     const { join: pjoin } = await import('node:path');
 
-    // Clear SHA256 cache before deleting so re-ingest works
+    // Clear SHA256 cache and strip log entries before deleting
     try {
       const content = await readFile(pjoin(active.root, path), 'utf8');
       const hash = sha256(content);
       active.db.prepare('DELETE FROM ingest_queue WHERE sha256 = ?').run(hash);
       active.db.prepare('DELETE FROM analyze_cache WHERE sha256 = ?').run(hash);
-    } catch { /* file may not exist yet, ignore */ }
+    } catch { /* file may not exist, ignore */ }
+
+    // Remove log.md entries for this source so cost totals don't accumulate
+    try {
+      const { writeFile } = await import('node:fs/promises');
+      const logPath = pjoin(active.root, 'wiki', 'log.md');
+      const logText = await readFile(logPath, 'utf8');
+      const parts = logText.split(/(?=\n## \[)/);
+      const filtered = parts.filter(part => !part.includes(`"${path}"`));
+      await writeFile(logPath, filtered.join(''), 'utf8');
+    } catch { /* no log file, ignore */ }
 
     await unlink(pjoin(active.root, path));
 
