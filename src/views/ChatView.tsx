@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, BookOpen, Plus, Trash2, MessageSquare } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../state/chatStore';
 import type { ChatSummary } from '../state/chatStore';
+
+// Strip [[wikilinks]] brackets, bold the text inside
+function processAssistant(text: string): string {
+  return text.replace(/\[\[([^\]]+)\]\]/g, '**$1**');
+}
 
 type ModelChoice = 'haiku' | 'sonnet' | 'opus';
 
@@ -260,7 +267,24 @@ export function ChatView() {
                         background: 'linear-gradient(135deg, rgba(240,160,48,0.13), rgba(240,160,48,0.05))',
                       } : undefined}
                     >
-                      {m.content}
+                      {isUser ? m.content : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <p className="mb-3 last:mb-0 leading-7">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc list-outside pl-4 mb-3 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-3 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="leading-6">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+                            em: ({ children }) => <em className="text-ink-dim">{children}</em>,
+                            h3: ({ children }) => <h3 className="font-semibold text-ink mt-4 mb-1.5 first:mt-0">{children}</h3>,
+                            hr: () => <hr className="border-rim my-3" />,
+                            code: ({ children }) => <code className="bg-black/20 rounded px-1 py-0.5 text-xs font-mono text-amber/80">{children}</code>,
+                          }}
+                        >
+                          {processAssistant(m.content)}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 );
