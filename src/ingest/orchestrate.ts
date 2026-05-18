@@ -100,7 +100,10 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
     const p = { ...raw, path: normalizePath(raw.path) };
     const type = typeFromPath(p.path);
     const slug = p.path.split('/')[1] ?? p.path;
-    const title = slug.replace(/-/g, ' ');
+    const headingMatch = p.body.match(/^#\s+(.+)/m);
+    const title = headingMatch
+      ? headingMatch[1].trim()
+      : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     await writePage(vault, {
       path: p.path,
       frontmatter: { type, title, sources: [rawPath], created: now, updated: now },

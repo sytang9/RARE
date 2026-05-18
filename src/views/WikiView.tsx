@@ -165,6 +165,11 @@ export function WikiView() {
     { concept: [], entity: [], source: [] },
   );
 
+  function fmtTitle(t: string): string {
+    if (!t) return t;
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
   // Convert [[wikilinks]] to markdown links prefixed with "wiki:" so we can intercept them
   function processBody(body: string): string {
     return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => `[${target}](wiki:${encodeURIComponent(target)})`);
@@ -214,7 +219,7 @@ export function WikiView() {
                         : 'hover:bg-card border-l-2 border-transparent',
                     ].join(' ')}
                   >
-                    <span className="text-xs text-ink truncate flex-1">{p.title}</span>
+                    <span className="text-xs text-ink truncate flex-1">{fmtTitle(p.title)}</span>
                     <ChevronRight size={11} className="text-ink-dim shrink-0 opacity-50" />
                   </button>
                 ))}
@@ -264,7 +269,7 @@ export function WikiView() {
                   </span>
                 </div>
                 <h1 className="text-2xl font-semibold text-ink tracking-tight mb-3">
-                  {selected.frontmatter.title}
+                  {fmtTitle(selected.frontmatter.title)}
                 </h1>
 
                 {/* Source references — clickable */}
