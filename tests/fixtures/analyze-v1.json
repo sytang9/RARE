@@ -1,0 +1,18 @@
+{
+  "source_title": "Intro to Similarity Metrics",
+  "source_summary": "Overview of cosine and Euclidean similarity for embeddings.",
+  "entities": [
+    { "name": "Alice Smith", "type": "person", "description": "Researcher referenced in the post.", "is_new": true }
+  ],
+  "concepts": [
+    { "name": "Cosine Similarity", "description": "Angle-based vector similarity.", "is_new": true },
+    { "name": "Euclidean Distance", "description": "Magnitude-based vector distance.", "is_new": true }
+  ],
+  "connections": [],
+  "contradictions": [],
+  "recommended_pages": [
+    { "action": "create", "path": "concepts/cosine-similarity", "rationale": "Central concept." },
+    { "action": "create", "path": "concepts/euclidean-distance", "rationale": "Compared throughout." },
+    { "action": "create", "path": "entities/alice-smith", "rationale": "Author cited." }
+  ]
+}

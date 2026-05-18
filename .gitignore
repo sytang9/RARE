@@ -14,7 +14,8 @@ src-tauri/gen/
 
 # Local app state (RARE writes to vault/.rare; we never want to commit a vault either)
 .rare/
-my-vault/
+/vault/
+/my-vault/
 *.sqlite
 *.sqlite-journal
 

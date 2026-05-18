@@ -1,0 +1,13 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+vault
+.rare
+*.sqlite
+*.sqlite-journal
+.env
+.env.local
+coverage
+ref
+.git
