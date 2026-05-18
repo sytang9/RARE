@@ -198,7 +198,7 @@ export function PasteView() {
   return (
     <div className="h-full flex overflow-hidden">
       {/* Left: ingest form */}
-      <div className="w-[480px] shrink-0 overflow-y-auto p-8">
+      <div className="flex-1 min-w-0 overflow-y-auto p-8">
       <div className="max-w-2xl space-y-6">
         <div>
           <h1 className="text-lg font-semibold text-ink mb-1">Ingest Source</h1>
