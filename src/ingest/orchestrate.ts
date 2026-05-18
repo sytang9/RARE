@@ -96,6 +96,20 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;
   const now = new Date().toISOString();
 
+  // Guarantee a source summary page exists regardless of LLM recommendations
+  const sourceSlug = toSlug(rawPath.replace('raw/sources/', '').replace(/\.[^.]+$/, ''));
+  const sourcePath = `sources/${sourceSlug}`;
+  const sourceTitle = analysis.source_title;
+  const hasSourcePage = pages.some(p => normalizePath(p.path) === sourcePath);
+  if (!hasSourcePage) {
+    await writePage(vault, {
+      path: sourcePath,
+      frontmatter: { type: 'source', title: sourceTitle, sources: [rawPath], created: now, updated: now },
+      body: `# ${sourceTitle}\n\n${analysis.source_summary}`,
+    });
+    await updateIndex(vault, { path: sourcePath, title: sourceTitle, type: 'source', summary: analysis.source_summary });
+  }
+
   for (const raw of pages) {
     const p = { ...raw, path: normalizePath(raw.path) };
     const type = typeFromPath(p.path);
