@@ -34,12 +34,12 @@ export const TYPE_COLOR: Record<PageType, string> = {
   source:  '#34d399',
 };
 
-const FONT = '11px monospace';
+const FONT = '16px monospace';
 export const MAX_WORDS = 40;
 const PADDING = 24;
 const BG_COLOR = '#060612';
 const STAR_COUNT = 120;
-const CONSTELLATION_DIST = 130;
+const CONSTELLATION_DIST = 200;
 
 function truncate(s: string, max = 22): string {
   return s.length > max ? s.slice(0, max) : s;
@@ -47,7 +47,7 @@ function truncate(s: string, max = 22): string {
 
 function measureWord(ctx: CanvasRenderingContext2D, text: string): { w: number; h: number } {
   ctx.font = FONT;
-  return { w: Math.ceil(ctx.measureText(text).width) + 8, h: 14 };
+  return { w: Math.ceil(ctx.measureText(text).width) + 8, h: 20 };
 }
 
 function generateStars(w: number, h: number): Star[] {
@@ -122,11 +122,16 @@ export function stepPhysics(
   canvasW: number,
   canvasH: number,
 ): void {
-  const PAD = PADDING;
-  const DAMP = 0.97;
-  const MAX_SPEED = 3.0;
+  const DAMP = 0.96;
+  const MAX_SPEED = 2.5;
+  const WORD_REPEL_DIST = 130;
 
   for (const b of bodies) {
+    // Ambient wander — always on, gives each word a life of its own
+    b.vx += (Math.random() - 0.5) * 0.07;
+    b.vy += (Math.random() - 0.5) * 0.07;
+
+    // Cursor attraction
     if (cursor) {
       const dx = cursor.x - b.x;
       const dy = cursor.y - b.y;
@@ -134,9 +139,17 @@ export function stepPhysics(
       const strength = Math.min(800 / (dist * dist), 0.4);
       b.vx += (dx / dist) * strength;
       b.vy += (dy / dist) * strength;
-    } else {
-      b.vx += (Math.random() - 0.5) * 0.02;
-      b.vy += (Math.random() - 0.5) * 0.02;
+    }
+
+    // Gentle center pull — starts at 55% of canvas radius, brings strays back gradually
+    const cx = canvasW / 2, cy = canvasH / 2;
+    const offX = b.x + b.w / 2 - cx, offY = b.y + b.h / 2 - cy;
+    const offDist = Math.sqrt(offX * offX + offY * offY) || 1;
+    const threshold = Math.max(canvasW, canvasH) * 0.55;
+    if (offDist > threshold) {
+      const pull = (offDist - threshold) * 0.001;
+      b.vx -= (offX / offDist) * pull;
+      b.vy -= (offY / offDist) * pull;
     }
 
     b.vx *= DAMP;
@@ -146,21 +159,22 @@ export function stepPhysics(
 
     b.x += b.vx;
     b.y += b.vy;
-
-    if (b.x < PAD)                  { b.x = PAD;                b.vx = Math.abs(b.vx) * 0.6; }
-    if (b.x + b.w > canvasW - PAD)  { b.x = canvasW - PAD - b.w; b.vx = -Math.abs(b.vx) * 0.6; }
-    if (b.y < PAD)                  { b.y = PAD;                b.vy = Math.abs(b.vy) * 0.6; }
-    if (b.y + b.h > canvasH - PAD)  { b.y = canvasH - PAD - b.h; b.vy = -Math.abs(b.vy) * 0.6; }
   }
 
+  // Velocity-based word–word repulsion so they spread out and don't clump
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
       const a = bodies[i], bw = bodies[j];
-      const ox = Math.min(a.x + a.w, bw.x + bw.w) - Math.max(a.x, bw.x);
-      const oy = Math.min(a.y + a.h, bw.y + bw.h) - Math.max(a.y, bw.y);
-      if (ox > 0 && oy > 0) {
-        if (ox < oy) { a.x -= ox / 2; bw.x += ox / 2; }
-        else         { a.y -= oy / 2; bw.y += oy / 2; }
+      const ax = a.x + a.w / 2, ay = a.y + a.h / 2;
+      const bx = bw.x + bw.w / 2, by = bw.y + bw.h / 2;
+      const dx = ax - bx, dy = ay - by;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (dist < WORD_REPEL_DIST) {
+        const strength = ((WORD_REPEL_DIST - dist) / WORD_REPEL_DIST) * 0.45;
+        a.vx  += (dx / dist) * strength;
+        a.vy  += (dy / dist) * strength;
+        bw.vx -= (dx / dist) * strength;
+        bw.vy -= (dy / dist) * strength;
       }
     }
   }
@@ -225,18 +239,18 @@ function drawScene(
 
     // Glow dot
     ctx.globalAlpha = alpha * 0.9;
-    ctx.shadowBlur = nearCursor ? 10 : 6;
+    ctx.shadowBlur = nearCursor ? 14 : 8;
     ctx.shadowColor = color;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(cx, cy - 2, nearCursor ? 2.5 : 1.8, 0, Math.PI * 2);
+    ctx.arc(cx, cy - 4, nearCursor ? 3.5 : 2.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Text label
-    ctx.shadowBlur = nearCursor ? 8 : 0;
-    ctx.globalAlpha = alpha * 0.85;
+    ctx.shadowBlur = nearCursor ? 12 : 4;
+    ctx.globalAlpha = alpha * 0.9;
     ctx.fillStyle = color;
-    ctx.fillText(b.text, b.x + 4, b.y + 10);
+    ctx.fillText(b.text, b.x + 4, b.y + 14);
 
     ctx.shadowBlur = 0;
   }

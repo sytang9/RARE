@@ -126,8 +126,8 @@ export function SettingsView() {
   const PERIOD_LABELS: Record<Period, string> = { today: 'Today', month: 'This month', all: 'All time' };
 
   return (
-    <div className="h-full overflow-y-auto p-8">
-      <div className="max-w-xl space-y-4">
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-xl mx-auto px-8 py-10 space-y-4">
         <div className="mb-6">
           <h1 className="text-lg font-semibold text-ink mb-1">Settings</h1>
           <p className="text-sm text-ink-dim">Configure vault, cost limits, and lint schedule.</p>
