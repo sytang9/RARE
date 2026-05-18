@@ -96,7 +96,6 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
   const costUsd = Math.round((analyzeUsd + generateUsd) * 1_000_000) / 1_000_000;
   const now = new Date().toISOString();
 
-  // Fallback: if the LLM produced no source page at all, write a minimal one
   const hasSourcePage = pages.some(p => normalizePath(p.path).startsWith('sources/'));
   if (!hasSourcePage) {
     const sourceSlug = toSlug(rawPath.replace('raw/sources/', '').replace(/\.[^.]+$/, ''));
