@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../state/chatStore';
 import type { ChatSummary } from '../state/chatStore';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // Strip [[wikilinks]] brackets, bold the text inside
 function processAssistant(text: string): string {
@@ -91,10 +92,11 @@ function HistoryItem({
 
 export function ChatView() {
   const { chatId, messages, pending, chatList, send, loadChat, newChat, deleteChat, loadHistory } = useChatStore();
-  const [draft, setDraft]         = useState('');
-  const [error, setError]         = useState('');
-  const [model, setModel]         = useState<ModelChoice>('sonnet');
-  const [thinking, setThinking]   = useState(false);
+  const [draft, setDraft]           = useState('');
+  const [error, setError]           = useState('');
+  const [model, setModel]           = useState<ModelChoice>('sonnet');
+  const [thinking, setThinking]     = useState(false);
+  const [confirmChatId, setConfirmChatId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -138,8 +140,13 @@ export function ChatView() {
     inputRef.current?.focus();
   }
 
-  async function handleDeleteChat(id: number, e: React.MouseEvent) {
+  function handleDeleteChat(id: number, e: React.MouseEvent) {
     e.stopPropagation();
+    setConfirmChatId(id);
+  }
+
+  async function doDeleteChat(id: number) {
+    setConfirmChatId(null);
     await deleteChat(id);
   }
 
@@ -339,6 +346,18 @@ export function ChatView() {
           </div>
         </div>
       </div>
+
+      {confirmChatId !== null && (() => {
+        const chat = chatList.find(c => c.id === confirmChatId);
+        return (
+          <ConfirmDialog
+            title="Delete conversation?"
+            body={`"${chat?.title ?? 'This conversation'}" will be permanently deleted.`}
+            onConfirm={() => doDeleteChat(confirmChatId)}
+            onCancel={() => setConfirmChatId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

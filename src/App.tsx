@@ -7,6 +7,7 @@ import { GraphView } from './views/GraphView';
 import { WikiView } from './views/WikiView';
 import { SourcesView } from './views/SourcesView';
 import { NewVaultModal } from './views/NewVaultModal';
+import { ConfirmDialog } from './views/ConfirmDialog';
 import { useVaultStore } from './state/vaultStore';
 
 type Tab = 'ingest' | 'chat' | 'sources' | 'wiki' | 'graph' | 'settings';
@@ -27,9 +28,10 @@ export default function App() {
   });
 
   const { vaults, activeVaultId, fetchVaults, switchVault, deleteVault } = useVaultStore();
-  const [vaultDropdown, setVaultDropdown] = useState(false);
-  const [showNewVault, setShowNewVault]   = useState(false);
-  const [deletingId, setDeletingId]       = useState<number | null>(null);
+  const [vaultDropdown, setVaultDropdown]   = useState(false);
+  const [showNewVault, setShowNewVault]     = useState(false);
+  const [deletingId, setDeletingId]         = useState<number | null>(null);
+  const [confirmVaultId, setConfirmVaultId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,10 +51,14 @@ export default function App() {
 
   const activeVault = vaults.find(v => v.id === activeVaultId);
 
-  async function handleDelete(id: number, e: React.MouseEvent) {
+  function handleDelete(id: number, e: React.MouseEvent) {
     e.stopPropagation();
     if (vaults.length <= 1) return;
-    if (!confirm('Delete this vault and all its data? This cannot be undone.')) return;
+    setConfirmVaultId(id);
+  }
+
+  async function doDeleteVault(id: number) {
+    setConfirmVaultId(null);
     setDeletingId(id);
     try {
       await deleteVault(id);
@@ -186,11 +192,22 @@ export default function App() {
           onClose={() => setShowNewVault(false)}
           onCreated={() => {
             setShowNewVault(false);
-            // page reloads via switchVault inside createVault, but just in case:
             fetchVaults();
           }}
         />
       )}
+
+      {confirmVaultId !== null && (() => {
+        const v = vaults.find(x => x.id === confirmVaultId);
+        return (
+          <ConfirmDialog
+            title="Delete vault?"
+            body={`This will permanently delete "${v?.name ?? 'this vault'}" and all its wiki pages. This cannot be undone.`}
+            onConfirm={() => doDeleteVault(confirmVaultId)}
+            onCancel={() => setConfirmVaultId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
