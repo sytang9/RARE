@@ -6,7 +6,7 @@ Read the source document below. Use the `record_analysis` tool to return a struc
 - concepts (theories, methods, ideas, topics) the source introduces or discusses substantively
 - connections to existing wiki pages (use exact paths from the supplied index)
 - contradictions: claims in this source that conflict with existing wiki pages
-- recommended_pages: which wiki pages to create or update (action: "create" | "update", path, rationale)
+- recommended_pages: which wiki pages to create or update (action: "create" | "update", path, rationale). **Always include exactly one source summary page** (`sources/<slug>`) as the first entry — this is mandatory for every ingest.
 
 **Path format rules (strictly required):**
 - Concept pages: `concepts/<kebab-case-slug>` (e.g. `concepts/gradient-descent`)
