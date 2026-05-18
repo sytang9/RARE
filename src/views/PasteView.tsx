@@ -162,7 +162,7 @@ export function PasteView() {
       <div className="max-w-2xl space-y-6">
         <div>
           <h1 className="text-lg font-semibold text-ink mb-1">Ingest Source</h1>
-          <p className="text-sm text-ink-dim">Add a URL, file path, or PDF to your knowledge base.</p>
+          <p className="text-sm text-ink-dim">Add a URL, Confluence page, file path, or PDF to your knowledge base.</p>
         </div>
 
         {/* URL / path input */}
@@ -172,7 +172,7 @@ export function PasteView() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={"https://example.com/article\n/home/you/papers/transformer.pdf"}
+              placeholder={"https://example.com/article\nhttps://yourorg.atlassian.net/wiki/spaces/TEAM/pages/123456\n/home/you/papers/report.pdf"}
               rows={3}
               className={[
                 'w-full bg-card border rounded-lg px-4 py-3 font-mono text-sm text-ink input-amber-focus',
@@ -202,6 +202,9 @@ export function PasteView() {
               Ingest
             </button>
             <span className="text-xs text-ink-dim">⌘↵ to submit</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-rim text-ink-dim/60">
+              Confluence URLs auto-detected
+            </span>
             {notice && (
               <span className={`text-xs ml-auto ${notice.startsWith('Queued') ? 'text-green-400' : 'text-red-400'}`}>
                 {notice}
