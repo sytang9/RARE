@@ -60,8 +60,48 @@ To stop: press `Ctrl+C`, or run `docker compose down` in another terminal.
 | PDF (text extraction) | Drop the PDF file onto the upload area |
 | PDF (vision mode) | Drop the PDF and enable **Vision PDF** toggle for scanned/image PDFs |
 | Plain text / notes | Paste markdown or text directly |
+| Confluence page | See [Confluence](#confluence) below |
 
 After ingesting, RARE queues the source and processes it in the background. A spinner shows progress. When done, the source appears in the **Sources** tab and new wiki pages appear in **Wiki** and **Graph**.
+
+---
+
+### Confluence
+
+Export individual Confluence pages or spaces into RARE using any of these methods:
+
+**Option A — Export as PDF (simplest)**
+
+1. Open the Confluence page.
+2. Click the **…** menu (top-right) → **Export** → **Export to PDF**.
+3. Drop the downloaded PDF into the RARE ingest area.
+4. Enable **Vision PDF** if the page contains screenshots or diagrams.
+
+**Option B — Copy page text**
+
+1. Open the Confluence page.
+2. Select all (`Ctrl+A`) and copy.
+3. Paste into the RARE text ingest area and click **Ingest**.
+
+Works well for text-heavy pages (specs, decisions, runbooks). Loses formatting but RARE normalises it anyway.
+
+**Option C — Export space as HTML, convert to markdown (bulk)**
+
+For ingesting a whole space:
+
+1. Go to **Space Settings** → **Manage Space** → **Export Space** → choose **HTML**.
+2. Unzip the export. Each page is a `.html` file.
+3. Convert to markdown with [turndown-cli](https://github.com/domchristie/turndown) or [pandoc](https://pandoc.org/):
+   ```bash
+   # pandoc (one page)
+   pandoc -f html -t markdown page.html -o page.md
+
+   # batch
+   for f in *.html; do pandoc -f html -t markdown "$f" -o "${f%.html}.md"; done
+   ```
+4. Paste each `.md` file's content into RARE, or drop it as a file.
+
+**Tip — meeting notes / standups:** RARE accumulates dated entries in entity pages chronologically regardless of the order you ingest them, so you can export and feed old Confluence meeting notes at any time.
 
 ### Chat tab — ask questions
 
@@ -100,15 +140,42 @@ vault/
 └── wiki/               ← generated pages (concepts, entities, sources, lint reports)
 ```
 
-**Open `vault/` in Obsidian** to get a graph view and edit pages freely. RARE and Obsidian can be open at the same time.
+### Opening in Obsidian
 
-To keep your vault across rebuilds, the `vault/` folder lives on your host machine — not inside Docker. You can also set a custom location:
+**Open `vault/` in Obsidian** to get a full graph view, edit pages freely, and use Obsidian plugins. RARE and Obsidian can be open at the same time — they share the same folder on disk.
+
+**Steps:**
+
+1. Open [Obsidian](https://obsidian.md) and choose **Open folder as vault**.
+2. Navigate to the `vault/` folder inside your RARE project (or wherever `VAULT_PATH` points).
+3. Click **Open**.
+
+Obsidian will index all wiki pages. The graph view (`Ctrl+G`) shows how concepts, entities, and sources are connected via wikilinks.
+
+**What works out of the box:**
+
+- `[[wikilinks]]` — RARE generates them in `[[slug|Display Title]]` format, which Obsidian resolves by filename.
+- Graph view — every page RARE creates is linked and visible.
+- Backlinks panel — see all pages that reference a given concept or entity.
+- Free editing — you can add notes, highlight text, or link pages manually. RARE preserves hand-written content when it merges future ingests.
+
+**Using an existing Obsidian vault:**
+
+Point RARE at a vault you already use so new pages land alongside your existing notes:
 
 ```bash
 # .env
 ANTHROPIC_API_KEY=sk-ant-...
-VAULT_PATH=/Users/you/Documents/my-vault
+VAULT_PATH=/Users/you/Documents/my-existing-vault
 ```
+
+RARE writes only under `wiki/`, `raw/`, `purpose.md`, and `schema.md` — it will not touch any other files in the vault.
+
+**Tips:**
+
+- Install the **Dataview** plugin in Obsidian to query your wiki pages like a database (e.g. list all entities by source date).
+- The **Graph Analysis** plugin surfaces clusters and bridges — useful once the wiki grows past ~50 pages.
+- RARE's `purpose.md` and `schema.md` are plain markdown files you can edit directly in Obsidian to tune how new pages are generated.
 
 ---
 
