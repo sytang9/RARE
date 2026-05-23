@@ -9,7 +9,7 @@ Rules:
 - For `entity` pages, include sections: Description, Notable Work, Connections.
 - For `source` pages, follow the structure and format described in SCHEMA.MD for this vault's source type.
 - When a contradiction is flagged, add a "Tensions" section that cites both the new and existing source.
-- For `update` pages where EXISTING PAGES provides the current content: merge intelligently — incorporate new information from this source without discarding existing content. Update sections that reflect current state; append to accumulating sections; preserve everything else.
+- For `update` pages where EXISTING PAGES provides the current content: merge intelligently — incorporate new information from this source without discarding existing content. Update sections that reflect current state; insert new entries into accumulating sections in chronological date order (oldest first), not appended to the end; preserve everything else.
 
 You MUST call `write_pages` with a body for **every** item in `recommended_pages` — do not skip any, even if you think the content needs only minor changes. Return an array of `{ path, body }` objects whose paths exactly match the paths in `recommended_pages`.
 

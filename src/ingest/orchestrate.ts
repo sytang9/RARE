@@ -57,6 +57,43 @@ const mergedFrontmatter = async (
   }
 };
 
+// Within a page body, find every `##` section whose bullets contain YYYY-MM-DD dates
+// and sort those bullets chronologically (oldest first). Bullets without a date sort last.
+// This is intentionally generic — it handles any accumulating dated-bullet section,
+// not just "Meeting Updates".
+const sortDatedSections = (body: string): string => {
+  return body.replace(
+    /(##[^\n]+\n\n)([\s\S]*?)(\n(?=##[^#])|$)/g,
+    (match, header, content, tail) => {
+      const lines = content.split('\n');
+      // Group lines into logical bullets (a bullet starts with '- ')
+      const bullets: string[] = [];
+      let current = '';
+      for (const line of lines) {
+        if (line.startsWith('- ') && current !== '') {
+          bullets.push(current);
+          current = line;
+        } else if (line.startsWith('- ')) {
+          current = line;
+        } else {
+          current += (current ? '\n' : '') + line;
+        }
+      }
+      if (current.trim()) bullets.push(current);
+      // Only sort if every non-empty bullet has a recognisable date — avoids
+      // reordering sections that happen to have one date but are not date-indexed.
+      const dated = bullets.filter(b => b.trim()).every(b => /\d{4}-\d{2}-\d{2}/.test(b));
+      if (!dated || bullets.length < 2) return match;
+      bullets.sort((a, b) => {
+        const da = a.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? '9999-99-99';
+        const db = b.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? '9999-99-99';
+        return da.localeCompare(db);
+      });
+      return header + bullets.join('\n') + tail;
+    },
+  );
+};
+
 const summaryForPage = (path: string, analysis: AnalyzeResult, rawPath: string): string => {
   const type = typeFromPath(path);
   if (type === 'source') return analysis.source_summary;
@@ -159,7 +196,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
     await writePage(vault, {
       path: p.path,
       frontmatter: await mergedFrontmatter(vault, p.path, { type, title, sources: [rawPath], created: now, updated: now }),
-      body: p.body,
+      body: type !== 'source' ? sortDatedSections(p.body) : p.body,
     });
     const summary = summaryForPage(p.path, analysis, rawPath);
     await updateIndex(vault, { path: p.path, title, type, summary });
