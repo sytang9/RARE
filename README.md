@@ -64,8 +64,6 @@ To stop: press `Ctrl+C`, or run `docker compose down` in another terminal.
 
 After ingesting, RARE queues the source and processes it in the background. A spinner shows progress. When done, the source appears in the **Sources** tab and new wiki pages appear in **Wiki** and **Graph**.
 
----
-
 ### Chat tab — ask questions
 
 Type any question about your saved content. Answers are grounded in your wiki pages with sources listed at the bottom.
