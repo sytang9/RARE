@@ -292,7 +292,7 @@ export function WikiView() {
                 {selected.frontmatter.sources.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     <span className="text-[10px] font-mono text-ink-dim self-center">sources:</span>
-                    {selected.frontmatter.sources.map(src => {
+                    {[...selected.frontmatter.sources].sort().map(src => {
                       const slug = src.replace('raw/sources/', '').replace(/\.md$/, '');
                       return (
                         <button
