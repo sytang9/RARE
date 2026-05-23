@@ -11,7 +11,7 @@ Rules:
 - When a contradiction is flagged, add a "Tensions" section that cites both the new and existing source.
 - For `update` pages where EXISTING PAGES provides the current content: merge intelligently — incorporate new information from this source without discarding existing content. Update sections that reflect current state; append to accumulating sections; preserve everything else.
 
-Return the result via the `write_pages` tool, an array of `{ path, body }` objects matching `recommended_pages` paths.
+You MUST call `write_pages` with a body for **every** item in `recommended_pages` — do not skip any, even if you think the content needs only minor changes. Return an array of `{ path, body }` objects whose paths exactly match the paths in `recommended_pages`.
 
 PURPOSE.MD:
 {{purpose}}
