@@ -60,48 +60,11 @@ To stop: press `Ctrl+C`, or run `docker compose down` in another terminal.
 | PDF (text extraction) | Drop the PDF file onto the upload area |
 | PDF (vision mode) | Drop the PDF and enable **Vision PDF** toggle for scanned/image PDFs |
 | Plain text / notes | Paste markdown or text directly |
-| Confluence page | See [Confluence](#confluence) below |
+| Confluence page | Fill in Confluence credentials in settings and paste a Confluence page URL in |
 
 After ingesting, RARE queues the source and processes it in the background. A spinner shows progress. When done, the source appears in the **Sources** tab and new wiki pages appear in **Wiki** and **Graph**.
 
 ---
-
-### Confluence
-
-Export individual Confluence pages or spaces into RARE using any of these methods:
-
-**Option A — Export as PDF (simplest)**
-
-1. Open the Confluence page.
-2. Click the **…** menu (top-right) → **Export** → **Export to PDF**.
-3. Drop the downloaded PDF into the RARE ingest area.
-4. Enable **Vision PDF** if the page contains screenshots or diagrams.
-
-**Option B — Copy page text**
-
-1. Open the Confluence page.
-2. Select all (`Ctrl+A`) and copy.
-3. Paste into the RARE text ingest area and click **Ingest**.
-
-Works well for text-heavy pages (specs, decisions, runbooks). Loses formatting but RARE normalises it anyway.
-
-**Option C — Export space as HTML, convert to markdown (bulk)**
-
-For ingesting a whole space:
-
-1. Go to **Space Settings** → **Manage Space** → **Export Space** → choose **HTML**.
-2. Unzip the export. Each page is a `.html` file.
-3. Convert to markdown with [turndown-cli](https://github.com/domchristie/turndown) or [pandoc](https://pandoc.org/):
-   ```bash
-   # pandoc (one page)
-   pandoc -f html -t markdown page.html -o page.md
-
-   # batch
-   for f in *.html; do pandoc -f html -t markdown "$f" -o "${f%.html}.md"; done
-   ```
-4. Paste each `.md` file's content into RARE, or drop it as a file.
-
-**Tip — meeting notes / standups:** RARE accumulates dated entries in entity pages chronologically regardless of the order you ingest them, so you can export and feed old Confluence meeting notes at any time.
 
 ### Chat tab — ask questions
 
