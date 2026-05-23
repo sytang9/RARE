@@ -126,8 +126,10 @@ export function WikiView() {
         setPages(data);
         const m = new Map<string, string>();
         for (const p of data) {
-          m.set(p.id.split('/').pop()!, p.id);
-          m.set(p.id, p.id);
+          m.set(p.id.split('/').pop()!, p.id);   // kebab slug: "camera-pose-estimation"
+          m.set(p.id, p.id);                      // full path:  "concepts/camera-pose-estimation"
+          m.set(p.title, p.id);                   // display title: "Camera Pose Estimation"
+          m.set(p.title.toLowerCase(), p.id);     // lowercase title: "camera pose estimation"
         }
         slugMap.current = m;
         setLoading(false);

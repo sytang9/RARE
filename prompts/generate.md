@@ -4,7 +4,7 @@ The analyzer has produced a structured analysis (`ANALYSIS`) of a source. For ea
 
 Rules:
 - Every page body starts with `# {Title}` then a short intro paragraph.
-- Use `[[wikilinks]]` aggressively to cross-reference existing pages and other pages you are generating in this batch. Always use the page's display title in the link, never a kebab-case slug.
+- Use `[[wikilinks]]` aggressively to cross-reference existing pages and other pages you are generating in this batch. Always write wikilinks as `[[slug|Display Title]]` where `slug` is the kebab-case page identifier (the last segment of the page path, e.g. `[[camera-pose-estimation|Camera Pose Estimation]]`). This format is required for both in-app navigation and Obsidian graph connections to work.
 - For `concept` pages, include sections: Definition, Related Concepts, Sources.
 - For `entity` pages, include sections: Description, Notable Work, Connections.
 - For `source` pages, follow the structure and format described in SCHEMA.MD for this vault's source type.
