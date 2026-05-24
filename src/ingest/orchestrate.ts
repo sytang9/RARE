@@ -94,19 +94,27 @@ const sortDatedSections = (body: string): string => {
   );
 };
 
-const summaryForPage = (path: string, analysis: AnalyzeResult, rawPath: string): string => {
+// Extract the first non-empty paragraph after the # Title heading.
+// This is more reliable than matching slugs against analysis.concepts[].name,
+// which can fail if the LLM omits description or uses a different slug.
+const introFromBody = (body: string): string => {
+  let pastHeading = false;
+  for (const line of body.split('\n')) {
+    if (!pastHeading) {
+      if (line.startsWith('# ')) pastHeading = true;
+      continue;
+    }
+    if (line.trim() === '') continue;
+    if (line.startsWith('#')) break; // hit next section with no intro
+    return line.trim();
+  }
+  return '';
+};
+
+const summaryForPage = (path: string, body: string, analysis: AnalyzeResult, rawPath: string): string => {
   const type = typeFromPath(path);
   if (type === 'source') return analysis.source_summary;
-  const slug = path.split('/')[1];
-  const concept = analysis.concepts.find(
-    (c) => c.name.toLowerCase().replace(/\s+/g, '-') === slug,
-  );
-  if (concept) return concept.description;
-  const entity = analysis.entities.find(
-    (e) => e.name.toLowerCase().replace(/\s+/g, '-') === slug,
-  );
-  if (entity) return entity.description;
-  return rawPath;
+  return introFromBody(body) || rawPath;
 };
 
 export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<void> {
@@ -198,7 +206,7 @@ export async function ingestSource(vault: VaultRoot, rawPath: string): Promise<v
       frontmatter: await mergedFrontmatter(vault, p.path, { type, title, sources: [rawPath], created: now, updated: now }),
       body: type !== 'source' ? sortDatedSections(p.body) : p.body,
     });
-    const summary = summaryForPage(p.path, analysis, rawPath);
+    const summary = summaryForPage(p.path, p.body, analysis, rawPath);
     await updateIndex(vault, { path: p.path, title, type, summary });
   }
 
