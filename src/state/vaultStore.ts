@@ -17,6 +17,7 @@ interface VaultState {
   switchVault(id: number): Promise<void>;
   createVault(name: string, slug: string): Promise<VaultInfo>;
   deleteVault(id: number): Promise<void>;
+  renameVault(id: number, name: string): Promise<void>;
   generatePurpose(vaultId: number, description: string, questions: string): Promise<string>;
   skipOnboarding(vaultId: number): Promise<void>;
 }
@@ -58,6 +59,19 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const vault = await r.json() as VaultInfo;
     set(s => ({ vaults: [...s.vaults, vault], activeVaultId: vault.id }));
     return vault;
+  },
+
+  async renameVault(id, name) {
+    const r = await fetch(`/api/vaults/${id}/rename`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!r.ok) {
+      const err = await r.json() as { error: string };
+      throw new Error(err.error ?? 'Rename failed');
+    }
+    set(s => ({ vaults: s.vaults.map(v => v.id === id ? { ...v, name } : v) }));
   },
 
   async deleteVault(id) {

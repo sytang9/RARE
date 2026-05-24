@@ -329,6 +329,20 @@ app.patch('/api/vaults/:id/activate', async (req: Request, res: Response) => {
   }
 });
 
+app.patch('/api/vaults/:id/rename', (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const { name } = req.body as { name?: string };
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+    const row = globalDb.prepare('SELECT id FROM vaults WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'Vault not found' });
+    globalDb.prepare('UPDATE vaults SET name = ? WHERE id = ?').run(name.trim(), id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.delete('/api/vaults/:id', async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);

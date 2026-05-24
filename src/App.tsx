@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Inbox, MessageSquare, Settings, GitBranch, BookOpen, FolderOpen, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, Check } from 'lucide-react';
+import { Inbox, MessageSquare, Settings, GitBranch, BookOpen, FolderOpen, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, Check, Pencil } from 'lucide-react';
 import { ChatView } from './views/ChatView';
 import { PasteView } from './views/PasteView';
 import { SettingsView } from './views/SettingsView';
@@ -27,12 +27,15 @@ export default function App() {
     return 'ingest';
   });
 
-  const { vaults, activeVaultId, fetchVaults, switchVault, deleteVault } = useVaultStore();
+  const { vaults, activeVaultId, fetchVaults, switchVault, deleteVault, renameVault } = useVaultStore();
   const [vaultDropdown, setVaultDropdown]   = useState(false);
   const [showNewVault, setShowNewVault]     = useState(false);
   const [deletingId, setDeletingId]         = useState<number | null>(null);
   const [confirmVaultId, setConfirmVaultId] = useState<number | null>(null);
   const [navOpen, setNavOpen]               = useState(true);
+  const [editingVaultId, setEditingVaultId] = useState<number | null>(null);
+  const [editingName, setEditingName]       = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,6 +64,27 @@ export default function App() {
     e.stopPropagation();
     if (vaults.length <= 1) return;
     setConfirmVaultId(id);
+  }
+
+  function handleEditStart(id: number, currentName: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setEditingVaultId(id);
+    setEditingName(currentName);
+    // Focus the input on next paint
+    setTimeout(() => editInputRef.current?.select(), 0);
+  }
+
+  async function handleEditCommit(id: number) {
+    const trimmed = editingName.trim();
+    if (trimmed && trimmed !== vaults.find(v => v.id === id)?.name) {
+      await renameVault(id, trimmed);
+    }
+    setEditingVaultId(null);
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent, id: number) {
+    if (e.key === 'Enter') { e.preventDefault(); handleEditCommit(id); }
+    if (e.key === 'Escape') { setEditingVaultId(null); }
   }
 
   async function doDeleteVault(id: number) {
@@ -118,27 +142,49 @@ export default function App() {
               <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-40 bg-panel border border-rim rounded-lg shadow-xl overflow-hidden">
                 <div className="py-1 max-h-52 overflow-y-auto">
                   {vaults.map(v => (
-                    <button
+                    <div
                       key={v.id}
-                      onClick={() => handleSwitch(v.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-card transition-colors group"
+                      onClick={() => editingVaultId !== v.id && handleSwitch(v.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-card transition-colors group cursor-pointer"
                     >
                       <Check
                         size={11}
                         className={v.id === activeVaultId ? 'text-amber shrink-0' : 'text-transparent shrink-0'}
                       />
-                      <span className="flex-1 truncate text-xs text-ink">{v.name}</span>
-                      {vaults.length > 1 && (
-                        <button
-                          onClick={(e) => handleDelete(v.id, e)}
-                          disabled={deletingId === v.id}
-                          className="opacity-0 group-hover:opacity-100 text-ink-dim hover:text-red-400 transition-all disabled:opacity-40"
-                          aria-label="Delete vault"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+                      {editingVaultId === v.id ? (
+                        <input
+                          ref={editInputRef}
+                          value={editingName}
+                          onChange={e => setEditingName(e.target.value)}
+                          onBlur={() => handleEditCommit(v.id)}
+                          onKeyDown={e => handleEditKeyDown(e, v.id)}
+                          onClick={e => e.stopPropagation()}
+                          className="flex-1 min-w-0 text-xs text-ink bg-base border border-amber rounded px-1 py-0.5 outline-none"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="flex-1 truncate text-xs text-ink">{v.name}</span>
                       )}
-                    </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={e => handleEditStart(v.id, v.name, e)}
+                          className="text-ink-dim hover:text-amber transition-colors"
+                          aria-label="Rename vault"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        {vaults.length > 1 && (
+                          <button
+                            onClick={(e) => handleDelete(v.id, e)}
+                            disabled={deletingId === v.id}
+                            className="text-ink-dim hover:text-red-400 transition-all disabled:opacity-40"
+                            aria-label="Delete vault"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
                 <div className="border-t border-rim">
