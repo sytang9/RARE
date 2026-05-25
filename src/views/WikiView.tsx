@@ -126,10 +126,19 @@ export function WikiView() {
         setPages(data);
         const m = new Map<string, string>();
         for (const p of data) {
-          m.set(p.id.split('/').pop()!, p.id);   // kebab slug: "camera-pose-estimation"
-          m.set(p.id, p.id);                      // full path:  "concepts/camera-pose-estimation"
-          m.set(p.title, p.id);                   // display title: "Camera Pose Estimation"
+          m.set(p.id.split('/').pop()!, p.id);   // kebab slug:      "camera-pose-estimation"
+          m.set(p.id, p.id);                      // full path:       "concepts/camera-pose-estimation"
+          m.set(p.title, p.id);                   // display title:   "Camera Pose Estimation"
           m.set(p.title.toLowerCase(), p.id);     // lowercase title: "camera pose estimation"
+          // Source pages: register both standup-YYYY-MM-DD and YYYY-MM-DD-standup so
+          // either slug format resolves regardless of which the LLM generated.
+          if (p.id.startsWith('sources/')) {
+            const slug = p.id.split('/').pop()!;
+            const flipped = slug
+              .replace(/^(\w+)-(\d{4}-\d{2}-\d{2})$/, '$2-$1')
+              .replace(/^(\d{4}-\d{2}-\d{2})-(.+)$/, '$2-$1');
+            if (flipped !== slug) m.set(`sources/${flipped}`, p.id);
+          }
         }
         slugMap.current = m;
         setLoading(false);
@@ -168,12 +177,36 @@ export function WikiView() {
     { concept: [], entity: [], source: [] },
   );
 
+  // Resolve a raw wikilink target to the best matching slug in slugMap.
+  // Handles: correct slug, lowercase, source date-format flip, and display-text
+  // title fallback (for links like [[vlm|VLM Pipeline]] where the slug is wrong
+  // but the display text matches a page title).
+  function resolveWikiTarget(rawTarget: string, display: string): string {
+    const m = slugMap.current;
+    // 1. Exact match (slug, full path, or title)
+    if (m.get(rawTarget) || m.get(rawTarget.toLowerCase())) return rawTarget;
+    // 2. Source pages: try YYYY-MM-DD-standup ↔ standup-YYYY-MM-DD
+    if (rawTarget.startsWith('sources/')) {
+      const flipped = rawTarget
+        .replace(/^sources\/(\d{4}-\d{2}-\d{2})-(.+)$/, 'sources/$2-$1')
+        .replace(/^sources\/(.+)-(\d{4}-\d{2}-\d{2})$/, 'sources/$2-$1');
+      if (flipped !== rawTarget && (m.get(flipped) || m.get(flipped.toLowerCase()))) return flipped;
+    }
+    // 3. Display text matches a page title → use that page's slug
+    if (display && display !== rawTarget) {
+      const byDisplay = m.get(display) ?? m.get(display.toLowerCase());
+      if (byDisplay) return byDisplay.split('/').pop()!;
+    }
+    return rawTarget; // unresolvable — will render as plain span
+  }
+
   // Convert [[wikilinks]] to markdown links. Handles [[Target]] and [[target|Display]] forms.
   function processBody(body: string): string {
     return body.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
       const pipe = inner.indexOf('|');
-      const target  = pipe !== -1 ? inner.slice(0, pipe).trim() : inner.trim();
-      const display = pipe !== -1 ? inner.slice(pipe + 1).trim() : inner.trim();
+      const rawTarget = (pipe !== -1 ? inner.slice(0, pipe) : inner).trim();
+      const display   = (pipe !== -1 ? inner.slice(pipe + 1) : inner).trim();
+      const target    = resolveWikiTarget(rawTarget, display);
       return `[${display}](wiki:${encodeURIComponent(target)})`;
     });
   }
