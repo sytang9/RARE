@@ -23,7 +23,10 @@ const NAV: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>(() => {
-    if (new URLSearchParams(window.location.search).has('wiki')) return 'wiki';
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('wiki')) return 'wiki';
+    const t = params.get('tab');
+    if (t && (['ingest', 'chat', 'sources', 'wiki', 'graph', 'settings'] as string[]).includes(t)) return t as Tab;
     return 'ingest';
   });
 
@@ -41,6 +44,20 @@ export default function App() {
   useEffect(() => {
     fetchVaults();
   }, [fetchVaults]);
+
+  // Keep URL in sync with the active tab so refresh restores the correct view.
+  // Wiki tab keeps ?wiki=<page> when a page is already in the URL (opened via
+  // wikilink in a new tab); otherwise it uses ?tab=wiki.
+  useEffect(() => {
+    const currentWikiParam = new URLSearchParams(window.location.search).get('wiki');
+    if (tab === 'ingest') {
+      window.history.replaceState(null, '', '/');
+    } else if (tab === 'wiki' && currentWikiParam) {
+      // A specific page is loaded — keep the ?wiki=<page> URL as-is.
+    } else {
+      window.history.replaceState(null, '', `/?tab=${tab}`);
+    }
+  }, [tab]);
 
   // Close dropdown on outside click
   useEffect(() => {
