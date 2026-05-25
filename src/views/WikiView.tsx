@@ -106,6 +106,8 @@ export function WikiView() {
   const slugMap = useRef(new Map<string, string>());
 
   const loadPage = useCallback(async (id: string) => {
+    // Keep the URL in sync so refresh restores the same page.
+    window.history.replaceState(null, '', `/?wiki=${encodeURIComponent(id)}`);
     setSourcePanel(null);
     setPageLoading(true);
     try {
